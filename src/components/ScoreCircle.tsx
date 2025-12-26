@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 interface ScoreCircleProps {
   score: number;
@@ -7,6 +8,30 @@ interface ScoreCircleProps {
 }
 
 const ScoreCircle = ({ score, label, size = "md" }: ScoreCircleProps) => {
+  const [displayScore, setDisplayScore] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+    // Animate score counting up
+    const duration = 1500;
+    const steps = 60;
+    const increment = score / steps;
+    let current = 0;
+    
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= score) {
+        setDisplayScore(score);
+        clearInterval(timer);
+      } else {
+        setDisplayScore(Math.floor(current));
+      }
+    }, duration / steps);
+
+    return () => clearInterval(timer);
+  }, [score]);
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-score-excellent";
     if (score >= 60) return "text-score-good";
@@ -21,6 +46,13 @@ const ScoreCircle = ({ score, label, size = "md" }: ScoreCircleProps) => {
     return "stroke-score-poor";
   };
 
+  const getScoreGlow = (score: number) => {
+    if (score >= 80) return "drop-shadow-[0_0_15px_hsl(160_84%_39%/0.4)]";
+    if (score >= 60) return "drop-shadow-[0_0_15px_hsl(48_96%_53%/0.4)]";
+    if (score >= 40) return "drop-shadow-[0_0_15px_hsl(38_92%_50%/0.4)]";
+    return "drop-shadow-[0_0_15px_hsl(0_84%_60%/0.4)]";
+  };
+
   const sizeClasses = {
     sm: { container: "w-20 h-20", text: "text-xl", label: "text-xs" },
     md: { container: "w-28 h-28", text: "text-3xl", label: "text-sm" },
@@ -29,12 +61,22 @@ const ScoreCircle = ({ score, label, size = "md" }: ScoreCircleProps) => {
 
   const radius = size === "lg" ? 60 : size === "md" ? 48 : 32;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const strokeDashoffset = circumference - (displayScore / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={cn("relative", sizeClasses[size].container)}>
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
+    <div className={cn(
+      "flex flex-col items-center gap-2 transition-all duration-500",
+      isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+    )}>
+      <div className={cn("relative group", sizeClasses[size].container)}>
+        <svg 
+          className={cn(
+            "w-full h-full -rotate-90 transition-all duration-300",
+            getScoreGlow(displayScore)
+          )} 
+          viewBox="0 0 140 140"
+        >
+          {/* Background circle with subtle pattern */}
           <circle
             cx="70"
             cy="70"
@@ -42,8 +84,9 @@ const ScoreCircle = ({ score, label, size = "md" }: ScoreCircleProps) => {
             fill="none"
             stroke="currentColor"
             strokeWidth="8"
-            className="text-muted"
+            className="text-muted/50"
           />
+          {/* Progress circle */}
           <circle
             cx="70"
             cy="70"
@@ -53,16 +96,41 @@ const ScoreCircle = ({ score, label, size = "md" }: ScoreCircleProps) => {
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            className={cn("transition-all duration-1000 ease-out", getScoreRingColor(score))}
+            className={cn(
+              "transition-all duration-1000 ease-out",
+              getScoreRingColor(displayScore)
+            )}
+            style={{
+              filter: "drop-shadow(0 0 6px currentColor)",
+            }}
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className={cn("font-display font-bold", sizeClasses[size].text, getScoreColor(score))}>
-            {score}
+        
+        {/* Center content with hover effect */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center transition-transform duration-300 group-hover:scale-110">
+          <span className={cn(
+            "font-display font-bold tabular-nums transition-all duration-300",
+            sizeClasses[size].text, 
+            getScoreColor(displayScore)
+          )}>
+            {displayScore}
           </span>
+          <span className="text-xs text-muted-foreground">/ 100</span>
         </div>
+        
+        {/* Decorative ring on hover */}
+        <div className={cn(
+          "absolute inset-0 rounded-full border-2 border-primary/0 transition-all duration-300",
+          "group-hover:border-primary/20 group-hover:scale-110"
+        )} />
       </div>
-      <p className={cn("font-medium text-muted-foreground", sizeClasses[size].label)}>{label}</p>
+      
+      <p className={cn(
+        "font-medium text-muted-foreground transition-colors duration-300 group-hover:text-foreground",
+        sizeClasses[size].label
+      )}>
+        {label}
+      </p>
     </div>
   );
 };

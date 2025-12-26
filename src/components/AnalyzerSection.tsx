@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Brain, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
@@ -110,9 +110,19 @@ const AnalyzerSection = () => {
   };
 
   return (
-    <section id="analyzer" className="py-16 lg:py-24">
+    <section id="analyzer" className="py-16 lg:py-24 relative">
+      {/* Background decoration */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-1/2 left-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+      </div>
+
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto text-center mb-12">
+        <div className="max-w-3xl mx-auto text-center mb-12 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+            <Brain className="w-3.5 h-3.5" />
+            Powered by AI
+          </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
             Resume Analyzer
           </h2>
@@ -122,16 +132,20 @@ const AnalyzerSection = () => {
         </div>
 
         {!results ? (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-card rounded-2xl shadow-card p-6 md:p-8 border border-border">
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div className="max-w-4xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <div className="bg-card rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-300 p-6 md:p-8 border border-border card-shine">
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
                 <div className="space-y-6">
                   <FileUpload
                     label="Upload Resume"
                     onFileSelect={setResumeFile}
                     file={resumeFile}
                   />
-                  <div className="text-center text-sm text-muted-foreground">— or —</div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground font-medium">OR</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
                   <TextInput
                     label="Paste Resume Text"
                     placeholder="Paste your resume content here..."
@@ -158,20 +172,31 @@ const AnalyzerSection = () => {
                   size="xl"
                   onClick={handleAnalyze}
                   disabled={isAnalyzing}
-                  className="min-w-[200px]"
+                  className="min-w-[220px] group relative overflow-hidden"
                 >
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Analyzing...
+                      <span className="animate-pulse">Analyzing...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-5 h-5" />
+                      <Sparkles className="w-5 h-5 transition-transform group-hover:rotate-12" />
                       Analyze Resume
+                      <Zap className="w-4 h-4 absolute right-4 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0 translate-x-2" />
                     </>
                   )}
                 </Button>
+              </div>
+              
+              {/* Feature hints */}
+              <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs text-muted-foreground">
+                {["ATS Score", "JD Match", "Suggestions", "Structure Analysis"].map((feature) => (
+                  <span key={feature} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                    {feature}
+                  </span>
+                ))}
               </div>
             </div>
           </div>

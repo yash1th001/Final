@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, FileText, Layout, Type, Award, Briefcase, GraduationCap } from "lucide-react";
+import { CheckCircle, XCircle, FileText, Layout, Type, Award, Briefcase, GraduationCap, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 const ResumeGuideSection = () => {
@@ -62,9 +62,19 @@ const ResumeGuideSection = () => {
   ];
 
   return (
-    <section id="guide" className="py-16 lg:py-24 bg-muted/30">
+    <section id="guide" className="py-16 lg:py-24 bg-muted/30 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-0 right-1/4 w-80 h-80 bg-primary/5 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float-delayed" />
+      </div>
+
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto text-center mb-12">
+        <div className="max-w-3xl mx-auto text-center mb-12 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-medium mb-4">
+            <Sparkles className="w-3.5 h-3.5" />
+            Expert Tips
+          </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
             Resume Best Practices
           </h2>
@@ -76,11 +86,11 @@ const ResumeGuideSection = () => {
         {/* Do's and Don'ts */}
         <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto mb-16">
           {/* Do's */}
-          <Card className="bg-card shadow-card border-border border-t-4 border-t-score-excellent">
+          <Card className="bg-card shadow-card border-border border-t-4 border-t-score-excellent hover-lift animate-slide-right" style={{ animationDelay: "0.1s" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="w-10 h-10 rounded-xl bg-score-excellent/10 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-score-excellent" />
+                <div className="w-12 h-12 rounded-xl bg-score-excellent/10 flex items-center justify-center transition-transform hover:scale-110 hover:rotate-3">
+                  <CheckCircle className="w-6 h-6 text-score-excellent" />
                 </div>
                 Do's
               </CardTitle>
@@ -90,10 +100,10 @@ const ResumeGuideSection = () => {
                 {dos.map((item, index) => (
                   <li
                     key={index}
-                    className="flex items-start gap-3 text-sm text-foreground animate-slide-up"
-                    style={{ animationDelay: `${index * 0.05}s` }}
+                    className="flex items-start gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 animate-slide-left group"
+                    style={{ animationDelay: `${0.15 + index * 0.03}s` }}
                   >
-                    <CheckCircle className="w-4 h-4 text-score-excellent mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-score-excellent mt-0.5 flex-shrink-0 transition-transform group-hover:scale-110" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -102,11 +112,11 @@ const ResumeGuideSection = () => {
           </Card>
 
           {/* Don'ts */}
-          <Card className="bg-card shadow-card border-border border-t-4 border-t-score-poor">
+          <Card className="bg-card shadow-card border-border border-t-4 border-t-score-poor hover-lift animate-slide-left" style={{ animationDelay: "0.2s" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="w-10 h-10 rounded-xl bg-score-poor/10 flex items-center justify-center">
-                  <XCircle className="w-5 h-5 text-score-poor" />
+                <div className="w-12 h-12 rounded-xl bg-score-poor/10 flex items-center justify-center transition-transform hover:scale-110 hover:-rotate-3">
+                  <XCircle className="w-6 h-6 text-score-poor" />
                 </div>
                 Don'ts
               </CardTitle>
@@ -116,10 +126,10 @@ const ResumeGuideSection = () => {
                 {donts.map((item, index) => (
                   <li
                     key={index}
-                    className="flex items-start gap-3 text-sm text-foreground animate-slide-up"
-                    style={{ animationDelay: `${index * 0.05}s` }}
+                    className="flex items-start gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 animate-slide-right group"
+                    style={{ animationDelay: `${0.25 + index * 0.03}s` }}
                   >
-                    <XCircle className="w-4 h-4 text-score-poor mt-0.5 flex-shrink-0" />
+                    <XCircle className="w-4 h-4 text-score-poor mt-0.5 flex-shrink-0 transition-transform group-hover:scale-110" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -130,21 +140,21 @@ const ResumeGuideSection = () => {
 
         {/* Resume Structure Guide */}
         <div className="max-w-5xl mx-auto">
-          <h3 className="font-display text-2xl font-bold text-foreground text-center mb-8">
+          <h3 className="font-display text-2xl font-bold text-foreground text-center mb-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
             Ideal Resume Structure
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sections.map((section, index) => (
               <Card
                 key={index}
-                className="bg-card shadow-card border-border hover:shadow-card-hover transition-all duration-300 animate-slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                className="bg-card shadow-card border-border hover-lift card-shine group animate-slide-up"
+                style={{ animationDelay: `${0.35 + index * 0.08}s` }}
               >
                 <CardContent className="pt-6">
-                  <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4">
-                    <section.icon className="w-6 h-6 text-primary-foreground" />
+                  <div className="w-14 h-14 rounded-xl gradient-hero flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110 group-hover:shadow-elevated group-hover:rotate-3">
+                    <section.icon className="w-7 h-7 text-primary-foreground" />
                   </div>
-                  <h4 className="font-display font-semibold text-foreground mb-2">
+                  <h4 className="font-display font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
                     {section.title}
                   </h4>
                   <p className="text-sm text-muted-foreground">{section.description}</p>
@@ -156,39 +166,40 @@ const ResumeGuideSection = () => {
 
         {/* Pro Tips */}
         <div className="max-w-4xl mx-auto mt-16">
-          <Card className="bg-secondary/50 border-0 shadow-elevated">
-            <CardContent className="p-8">
-              <h3 className="font-display text-xl font-bold text-foreground mb-4 text-center">
-                💡 Pro Tips for ATS Success
+          <Card className="bg-gradient-to-br from-secondary/80 to-secondary/60 border-0 shadow-elevated overflow-hidden animate-scale-in" style={{ animationDelay: "0.6s" }}>
+            <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--primary)/0.05)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--primary)/0.05)_1px,transparent_1px)] bg-[size:30px_30px]" />
+            <CardContent className="p-8 relative">
+              <h3 className="font-display text-xl font-bold text-secondary-foreground mb-6 text-center flex items-center justify-center gap-2">
+                <Sparkles className="w-5 h-5 text-accent animate-pulse-slow" />
+                Pro Tips for ATS Success
+                <Sparkles className="w-5 h-5 text-accent animate-pulse-slow" style={{ animationDelay: "1s" }} />
               </h3>
               <div className="grid md:grid-cols-2 gap-6 text-sm">
                 <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <span className="text-primary font-bold">01.</span>
-                    <p className="text-muted-foreground">
-                      <span className="text-foreground font-medium">Save as PDF or DOCX</span> — Most ATS systems parse these formats best. Avoid images or scanned documents.
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="text-primary font-bold">02.</span>
-                    <p className="text-muted-foreground">
-                      <span className="text-foreground font-medium">Mirror the job posting</span> — Use the same terminology and keywords as the job description.
-                    </p>
-                  </div>
+                  {[
+                    { num: "01", title: "Save as PDF or DOCX", desc: "Most ATS systems parse these formats best. Avoid images or scanned documents." },
+                    { num: "02", title: "Mirror the job posting", desc: "Use the same terminology and keywords as the job description." },
+                  ].map((tip, index) => (
+                    <div key={tip.num} className="flex gap-3 p-3 rounded-lg bg-background/10 hover:bg-background/20 transition-colors animate-slide-right" style={{ animationDelay: `${0.7 + index * 0.1}s` }}>
+                      <span className="text-accent font-bold font-mono">{tip.num}.</span>
+                      <p className="text-secondary-foreground/80">
+                        <span className="text-secondary-foreground font-medium">{tip.title}</span> — {tip.desc}
+                      </p>
+                    </div>
+                  ))}
                 </div>
                 <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <span className="text-primary font-bold">03.</span>
-                    <p className="text-muted-foreground">
-                      <span className="text-foreground font-medium">Use standard fonts</span> — Arial, Calibri, Times New Roman, or Garamond work best.
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="text-primary font-bold">04.</span>
-                    <p className="text-muted-foreground">
-                      <span className="text-foreground font-medium">Test your resume</span> — Run it through multiple ATS checkers before applying.
-                    </p>
-                  </div>
+                  {[
+                    { num: "03", title: "Use standard fonts", desc: "Arial, Calibri, Times New Roman, or Garamond work best." },
+                    { num: "04", title: "Test your resume", desc: "Run it through multiple ATS checkers before applying." },
+                  ].map((tip, index) => (
+                    <div key={tip.num} className="flex gap-3 p-3 rounded-lg bg-background/10 hover:bg-background/20 transition-colors animate-slide-left" style={{ animationDelay: `${0.7 + index * 0.1}s` }}>
+                      <span className="text-accent font-bold font-mono">{tip.num}.</span>
+                      <p className="text-secondary-foreground/80">
+                        <span className="text-secondary-foreground font-medium">{tip.title}</span> — {tip.desc}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </CardContent>
