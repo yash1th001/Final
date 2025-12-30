@@ -1,10 +1,13 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Set the worker source to use the CDN version matching our package version
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`;
+// PDF Text extraction using PDF.js with dynamic import to avoid top-level await issues
 
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
+    // Dynamic import to avoid top-level await build issues
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Set the worker source to use the CDN version matching our package version
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+    
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
