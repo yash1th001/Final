@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, FileText, X, FileUp, CheckCircle } from "lucide-react";
+import { Upload, FileText, X, FileUp, CheckCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
@@ -8,9 +8,10 @@ interface FileUploadProps {
   accept?: string;
   onFileSelect: (file: File | null) => void;
   file: File | null;
+  isLoading?: boolean;
 }
 
-const FileUpload = ({ label, accept = ".pdf,.doc,.docx,.txt", onFileSelect, file }: FileUploadProps) => {
+const FileUpload = ({ label, accept = ".pdf,.doc,.docx,.txt", onFileSelect, file, isLoading = false }: FileUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -98,17 +99,23 @@ const FileUpload = ({ label, accept = ".pdf,.doc,.docx,.txt", onFileSelect, file
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center relative">
-                <FileText className="w-6 h-6 text-primary" />
-                <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-score-excellent flex items-center justify-center">
-                  <CheckCircle className="w-3 h-3 text-primary-foreground" />
-                </div>
+                {isLoading ? (
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                ) : (
+                  <FileText className="w-6 h-6 text-primary" />
+                )}
+                {!isLoading && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-score-excellent flex items-center justify-center">
+                    <CheckCircle className="w-3 h-3 text-primary-foreground" />
+                  </div>
+                )}
               </div>
               <div className="overflow-hidden">
                 <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
                   {file.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {(file.size / 1024).toFixed(1)} KB • Ready for analysis
+                  {(file.size / 1024).toFixed(1)} KB • {isLoading ? "Parsing PDF..." : "Ready for analysis"}
                 </p>
               </div>
             </div>

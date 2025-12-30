@@ -5,6 +5,8 @@ import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
 import ResultsSection from "./ResultsSection";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
 
 export interface AnalysisResult {
   atsScore: number;
@@ -26,7 +28,33 @@ const AnalyzerSection = () => {
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [results, setResults] = useState<AnalysisResult | null>(null);
+
+  const handleFileSelect = async (file: File | null) => {
+    setResumeFile(file);
+    
+    if (file && isValidPDFFile(file)) {
+      setIsParsing(true);
+      try {
+        const text = await extractTextFromPDF(file);
+        setResumeText(text);
+        toast({
+          title: "PDF Parsed Successfully",
+          description: `Extracted ${text.length} characters from your resume.`,
+        });
+      } catch (error) {
+        console.error("PDF parsing error:", error);
+        toast({
+          title: "PDF Parsing Failed",
+          description: "Could not extract text from PDF. Please paste your resume text manually.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsParsing(false);
+      }
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!resumeFile && !resumeText.trim()) {
@@ -49,57 +77,57 @@ const AnalyzerSection = () => {
 
     setIsAnalyzing(true);
 
-    // Simulate API call - Replace with actual backend call
-    setTimeout(() => {
-      const mockResults: AnalysisResult = {
-        atsScore: 72,
-        jdMatchScore: 65,
-        structureScore: 78,
-        suggestions: {
-          additions: [
-            "Add specific metrics and quantifiable achievements (e.g., 'Increased sales by 30%')",
-            "Include relevant technical skills mentioned in the JD: Python, AWS, Docker",
-            "Add a professional summary section highlighting key qualifications",
-            "Include certifications relevant to the role",
-          ],
-          removals: [
-            "Remove personal pronouns ('I', 'my', 'me')",
-            "Eliminate graphics, images, or complex formatting",
-            "Remove outdated skills or irrelevant experience (>10 years old)",
-            "Remove generic phrases like 'responsible for' - use action verbs instead",
-          ],
-          improvements: [
-            "Use stronger action verbs: 'Developed' → 'Architected', 'Worked' → 'Spearheaded'",
-            "Ensure consistent date formatting throughout",
-            "Align experience section with JD requirements more closely",
-            "Improve keyword density for: 'machine learning', 'data analysis'",
-          ],
-        },
-        structureAnalysis: {
-          sections: [
-            { name: "Contact Information", status: "good" },
-            { name: "Professional Summary", status: "missing" },
-            { name: "Work Experience", status: "good" },
-            { name: "Education", status: "good" },
-            { name: "Skills", status: "needs-improvement" },
-            { name: "Certifications", status: "missing" },
-          ],
-          formatting: [
-            "Use a single-column layout for better ATS parsing",
-            "Ensure font size is between 10-12pt for body text",
-            "Use standard section headings (Education, Experience, Skills)",
-            "Keep resume length to 1-2 pages maximum",
-          ],
-        },
-      };
+    try {
+      // Get resume text - either from parsed PDF or manual input
+      let finalResumeText = resumeText.trim();
+      
+      if (!finalResumeText && resumeFile) {
+        // If we have a file but no text, try to parse it
+        if (isValidPDFFile(resumeFile)) {
+          finalResumeText = await extractTextFromPDF(resumeFile);
+        } else {
+          toast({
+            title: "Unsupported File",
+            description: "Please upload a PDF file or paste your resume text.",
+            variant: "destructive",
+          });
+          setIsAnalyzing(false);
+          return;
+        }
+      }
 
-      setResults(mockResults);
-      setIsAnalyzing(false);
+      // Call the edge function
+      const { data, error } = await supabase.functions.invoke('analyze-resume', {
+        body: {
+          resumeText: finalResumeText,
+          jobDescription: jobDescription.trim(),
+        },
+      });
+
+      if (error) {
+        console.error("Analysis error:", error);
+        throw new Error(error.message || "Failed to analyze resume");
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResults(data as AnalysisResult);
       toast({
         title: "Analysis Complete!",
-        description: "Your resume has been analyzed. Check out the results below.",
+        description: "Your resume has been analyzed with AI. Check out the personalized results below.",
       });
-    }, 2500);
+    } catch (error) {
+      console.error("Analysis failed:", error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const resetAnalysis = () => {
@@ -137,9 +165,10 @@ const AnalyzerSection = () => {
               <div className="grid md:grid-cols-2 gap-6 mb-8">
                 <div className="space-y-6">
                   <FileUpload
-                    label="Upload Resume"
-                    onFileSelect={setResumeFile}
+                    label="Upload Resume (PDF)"
+                    onFileSelect={handleFileSelect}
                     file={resumeFile}
+                    isLoading={isParsing}
                   />
                   <div className="flex items-center gap-4">
                     <div className="flex-1 h-px bg-border" />
