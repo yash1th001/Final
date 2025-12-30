@@ -1,7 +1,7 @@
 import { Plus, Minus, Lightbulb, CheckCircle, AlertCircle, XCircle, RotateCcw, FileText, Trophy } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import ScoreCircle from "./ScoreCircle";
+import ScoreCard from "./ScoreCard";
 import { cn } from "@/lib/utils";
 import { AnalysisResult } from "./AnalyzerSection";
 
@@ -16,23 +16,57 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
   const getStatusIcon = (status: "good" | "needs-improvement" | "missing") => {
     switch (status) {
       case "good":
-        return <CheckCircle className="w-4 h-4 text-score-excellent" />;
+        return <CheckCircle className="w-4 h-4 text-accent" />;
       case "needs-improvement":
         return <AlertCircle className="w-4 h-4 text-score-average" />;
       case "missing":
-        return <XCircle className="w-4 h-4 text-score-poor" />;
+        return <XCircle className="w-4 h-4 text-destructive" />;
     }
   };
 
   const getStatusBg = (status: "good" | "needs-improvement" | "missing") => {
     switch (status) {
       case "good":
-        return "bg-score-excellent/10 hover:bg-score-excellent/15";
+        return "bg-accent/10 hover:bg-accent/15";
       case "needs-improvement":
         return "bg-score-average/10 hover:bg-score-average/15";
       case "missing":
-        return "bg-score-poor/10 hover:bg-score-poor/15";
+        return "bg-destructive/10 hover:bg-destructive/15";
     }
+  };
+
+  // Generate improvement tips based on scores
+  const getATSTips = (score: number): string[] => {
+    const tips = [];
+    if (score < 80) tips.push("Use standard section headings like 'Work Experience' and 'Education'");
+    if (score < 70) tips.push("Avoid tables, graphics, and complex formatting");
+    if (score < 60) tips.push("Use a single-column layout for better parsing");
+    if (score < 50) tips.push("Remove headers and footers that may confuse ATS");
+    tips.push("Save your resume as a .docx or PDF format");
+    tips.push("Use standard fonts like Arial, Calibri, or Times New Roman");
+    return tips.slice(0, 5);
+  };
+
+  const getJDMatchTips = (score: number): string[] => {
+    const tips = [];
+    if (score < 80) tips.push("Mirror the exact keywords from the job description");
+    if (score < 70) tips.push("Include both spelled-out terms and acronyms (e.g., 'Search Engine Optimization (SEO)')");
+    if (score < 60) tips.push("Add relevant technical skills mentioned in the job posting");
+    if (score < 50) tips.push("Quantify your achievements with metrics and numbers");
+    tips.push("Tailor your summary to match the role requirements");
+    tips.push("Include industry-specific terminology and certifications");
+    return tips.slice(0, 5);
+  };
+
+  const getStructureTips = (score: number): string[] => {
+    const tips = [];
+    if (score < 80) tips.push("Ensure consistent date formatting throughout");
+    if (score < 70) tips.push("Use bullet points for better readability");
+    if (score < 60) tips.push("Keep your resume to 1-2 pages maximum");
+    if (score < 50) tips.push("Add a professional summary at the top");
+    tips.push("Use action verbs to start each bullet point");
+    tips.push("Group related information under clear section headings");
+    return tips.slice(0, 5);
   };
 
   return (
@@ -53,32 +87,35 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
             {overallScore >= 80 
               ? "Excellent! Your resume is well-optimized for ATS systems." 
               : overallScore >= 60 
-                ? "Good progress! Follow the suggestions below to improve further."
-                : "Your resume needs work. Apply the recommendations to boost your score."}
+                ? "Good progress! Tap on each score card below for specific improvement tips."
+                : "Your resume needs work. Tap on each score card to see how to improve."}
           </p>
         </div>
       </div>
 
-      {/* Score Cards */}
+      {/* Interactive Score Cards */}
       <div className="grid md:grid-cols-3 gap-6">
-        {[
-          { score: results.atsScore, label: "ATS Score", description: "How well your resume parses through ATS systems", delay: "0s" },
-          { score: results.jdMatchScore, label: "JD Match", description: "Keyword and skill alignment with job description", delay: "0.1s" },
-          { score: results.structureScore, label: "Structure", description: "Resume format and section organization", delay: "0.2s" },
-        ].map((item) => (
-          <Card 
-            key={item.label}
-            className="bg-card shadow-card border-border overflow-hidden hover-lift animate-slide-up"
-            style={{ animationDelay: item.delay }}
-          >
-            <CardContent className="pt-6 pb-6 flex flex-col items-center">
-              <ScoreCircle score={item.score} label={item.label} size="lg" />
-              <p className="text-sm text-muted-foreground mt-4 text-center">
-                {item.description}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        <ScoreCard
+          score={results.atsScore}
+          label="ATS Score"
+          description="How well your resume parses through ATS systems"
+          tips={getATSTips(results.atsScore)}
+          delay="0s"
+        />
+        <ScoreCard
+          score={results.jdMatchScore}
+          label="JD Match"
+          description="Keyword and skill alignment with job description"
+          tips={getJDMatchTips(results.jdMatchScore)}
+          delay="0.1s"
+        />
+        <ScoreCard
+          score={results.structureScore}
+          label="Structure"
+          description="Resume format and section organization"
+          tips={getStructureTips(results.structureScore)}
+          delay="0.2s"
+        />
       </div>
 
       {/* Suggestions Grid */}
@@ -87,8 +124,8 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
         <Card className="bg-card shadow-card border-border hover-lift animate-slide-up" style={{ animationDelay: "0.1s" }}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <div className="w-10 h-10 rounded-xl bg-score-excellent/10 flex items-center justify-center transition-transform hover:scale-110">
-                <Plus className="w-5 h-5 text-score-excellent" />
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center transition-transform hover:scale-110">
+                <Plus className="w-5 h-5 text-accent" />
               </div>
               Add to Resume
             </CardTitle>
@@ -101,7 +138,7 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
                   className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
                   style={{ animationDelay: `${0.2 + index * 0.05}s` }}
                 >
-                  <span className="text-score-excellent mt-0.5 font-bold">+</span>
+                  <span className="text-accent mt-0.5 font-bold">+</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -113,8 +150,8 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
         <Card className="bg-card shadow-card border-border hover-lift animate-slide-up" style={{ animationDelay: "0.2s" }}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <div className="w-10 h-10 rounded-xl bg-score-poor/10 flex items-center justify-center transition-transform hover:scale-110">
-                <Minus className="w-5 h-5 text-score-poor" />
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center transition-transform hover:scale-110">
+                <Minus className="w-5 h-5 text-destructive" />
               </div>
               Remove from Resume
             </CardTitle>
@@ -127,7 +164,7 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
                   className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
                   style={{ animationDelay: `${0.3 + index * 0.05}s` }}
                 >
-                  <span className="text-score-poor mt-0.5 font-bold">−</span>
+                  <span className="text-destructive mt-0.5 font-bold">−</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -139,8 +176,8 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
         <Card className="bg-card shadow-card border-border hover-lift animate-slide-up" style={{ animationDelay: "0.3s" }}>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <div className="w-10 h-10 rounded-xl bg-score-good/10 flex items-center justify-center transition-transform hover:scale-110">
-                <Lightbulb className="w-5 h-5 text-score-good" />
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center transition-transform hover:scale-110">
+                <Lightbulb className="w-5 h-5 text-primary" />
               </div>
               Improvements
             </CardTitle>
@@ -153,7 +190,7 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
                   className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
                   style={{ animationDelay: `${0.4 + index * 0.05}s` }}
                 >
-                  <span className="text-score-good mt-0.5">→</span>
+                  <span className="text-primary mt-0.5">→</span>
                   <span>{item}</span>
                 </li>
               ))}
