@@ -1,9 +1,11 @@
-import { Plus, Minus, Lightbulb, CheckCircle, AlertCircle, XCircle, RotateCcw, FileText, Trophy } from "lucide-react";
+import { Plus, Minus, Lightbulb, CheckCircle, AlertCircle, XCircle, RotateCcw, FileText, Trophy, Download } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import ScoreCard from "./ScoreCard";
 import { cn } from "@/lib/utils";
 import { AnalysisResult } from "./AnalyzerSection";
+import { generateAnalysisReport } from "@/lib/pdfGenerator";
+import { toast } from "@/hooks/use-toast";
 
 interface ResultsSectionProps {
   results: AnalysisResult;
@@ -12,6 +14,23 @@ interface ResultsSectionProps {
 
 const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
   const overallScore = Math.round((results.atsScore + results.jdMatchScore + results.structureScore) / 3);
+
+  const handleDownloadReport = async () => {
+    try {
+      await generateAnalysisReport(results);
+      toast({
+        title: "Report Downloaded",
+        description: "Your analysis report has been saved as a PDF.",
+      });
+    } catch (error) {
+      console.error("Failed to generate report:", error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error generating your report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getStatusIcon = (status: "good" | "needs-improvement" | "missing") => {
     switch (status) {
@@ -262,8 +281,17 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
         </CardContent>
       </Card>
 
-      {/* Reset Button */}
-      <div className="flex justify-center animate-fade-in" style={{ animationDelay: "0.7s" }}>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row justify-center gap-4 animate-fade-in" style={{ animationDelay: "0.7s" }}>
+        <Button 
+          variant="hero" 
+          size="lg" 
+          onClick={handleDownloadReport} 
+          className="gap-2 group hover-lift"
+        >
+          <Download className="w-4 h-4 transition-transform group-hover:-translate-y-1 duration-300" />
+          Download Report
+        </Button>
         <Button 
           variant="outline" 
           size="lg" 
