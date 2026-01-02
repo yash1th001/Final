@@ -4,10 +4,10 @@ import { Button } from "./ui/button";
 import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
 import ResultsSection from "./ResultsSection";
+import ResumeChat from "./ResumeChat";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
-
 export interface AnalysisResult {
   atsScore: number;
   jdMatchScore: number;
@@ -20,6 +20,17 @@ export interface AnalysisResult {
   structureAnalysis: {
     sections: { name: string; status: "good" | "needs-improvement" | "missing" }[];
     formatting: string[];
+  };
+  candidateContext?: {
+    name: string;
+    currentRole: string;
+    yearsExperience: string;
+    topSkills: string[];
+  };
+  keyFindings?: {
+    strongMatches: string[];
+    criticalGaps: string[];
+    quickWins: string[];
   };
 }
 
@@ -230,7 +241,14 @@ const AnalyzerSection = () => {
             </div>
           </div>
         ) : (
-          <ResultsSection results={results} onReset={resetAnalysis} />
+          <>
+            <ResultsSection results={results} onReset={resetAnalysis} />
+            <ResumeChat 
+              resumeText={resumeText} 
+              jobDescription={jobDescription} 
+              analysisResults={results}
+            />
+          </>
         )}
       </div>
     </section>

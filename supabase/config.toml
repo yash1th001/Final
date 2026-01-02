@@ -2,3 +2,6 @@ project_id = "hcxcoxipjhzfupchssyf"
 
 [functions.analyze-resume]
 verify_jwt = false
+
+[functions.resume-chat]
+verify_jwt = false

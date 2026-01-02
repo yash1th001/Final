@@ -10,6 +10,130 @@ interface AnalysisRequest {
   jobDescription: string;
 }
 
+// LangChain-style chain-of-thought prompting for personalized analysis
+const createAnalysisChain = (resumeText: string, jobDescription: string) => {
+  const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyst and career coach with deep expertise in resume optimization.
+
+## YOUR ANALYSIS METHODOLOGY (Chain of Thought)
+
+Follow this step-by-step reasoning process:
+
+### STEP 1: RESUME PARSING
+First, identify and extract from the resume:
+- Candidate's name and contact info
+- Current/most recent job title
+- Years of experience
+- Key technical skills
+- Soft skills mentioned
+- Educational background
+- Certifications
+- Notable achievements with metrics
+
+### STEP 2: JOB REQUIREMENTS EXTRACTION
+From the job description, identify:
+- Required years of experience
+- Must-have technical skills
+- Nice-to-have skills
+- Required certifications
+- Key responsibilities
+- Industry-specific keywords
+- Company culture indicators
+
+### STEP 3: GAP ANALYSIS
+Compare resume vs job requirements:
+- Which required skills are missing from the resume?
+- Which required skills are present but not emphasized?
+- What relevant experience is missing or understated?
+- Which keywords from JD are absent?
+
+### STEP 4: ATS OPTIMIZATION CHECK
+Evaluate the resume for:
+- Standard section headings (Education, Experience, Skills)
+- Keyword density and placement
+- Formatting compatibility (no tables, images, complex layouts)
+- Date formatting consistency
+- Use of standard job titles
+
+### STEP 5: PERSONALIZED RECOMMENDATIONS
+Based on the specific gaps found, provide:
+- Exact keywords to add from the JD
+- Specific achievements to highlight differently
+- Sections to add or restructure
+- Irrelevant content to remove
+- How to reframe existing experience
+
+## CRITICAL RULES FOR PERSONALIZATION
+1. NEVER give generic advice. Every suggestion must reference specific content from THIS resume or THIS job description.
+2. Quote exact phrases from the resume when suggesting changes
+3. Quote exact requirements from the JD when explaining what to add
+4. If the resume mentions "managed a team", suggest HOW to improve that specific bullet
+5. If the JD requires "5+ years Python", check if resume shows Python experience and for how long
+
+## OUTPUT FORMAT
+Return a valid JSON object with this exact structure:
+{
+  "atsScore": <number 0-100>,
+  "jdMatchScore": <number 0-100>,
+  "structureScore": <number 0-100>,
+  "candidateContext": {
+    "name": "<extracted name or 'Not specified'>",
+    "currentRole": "<current/recent role>",
+    "yearsExperience": "<estimated years>",
+    "topSkills": ["<skill1>", "<skill2>", "<skill3>"]
+  },
+  "keyFindings": {
+    "strongMatches": ["<specific match 1>", "<specific match 2>"],
+    "criticalGaps": ["<specific gap 1>", "<specific gap 2>"],
+    "quickWins": ["<easy improvement 1>", "<easy improvement 2>"]
+  },
+  "suggestions": {
+    "additions": [
+      "<SPECIFIC: Add 'X technology' from JD line Y to your skills section>",
+      "<SPECIFIC: Include metrics for your achievement about Z>"
+    ],
+    "removals": [
+      "<SPECIFIC: Remove or shorten the section about X as it's not relevant to this role>",
+      "<SPECIFIC: The phrase 'Y' is outdated, replace with 'Z'>"
+    ],
+    "improvements": [
+      "<SPECIFIC: Your bullet 'managed team projects' should become 'Led cross-functional team of X members to deliver Y project, resulting in Z% improvement'>",
+      "<SPECIFIC: Move your X certification higher as the JD specifically requires it>"
+    ]
+  },
+  "structureAnalysis": {
+    "sections": [
+      {"name": "Contact Information", "status": "good|needs-improvement|missing"},
+      {"name": "Professional Summary", "status": "good|needs-improvement|missing"},
+      {"name": "Work Experience", "status": "good|needs-improvement|missing"},
+      {"name": "Skills", "status": "good|needs-improvement|missing"},
+      {"name": "Education", "status": "good|needs-improvement|missing"},
+      {"name": "Certifications", "status": "good|needs-improvement|missing"}
+    ],
+    "formatting": [
+      "<SPECIFIC formatting recommendation based on THIS resume>"
+    ]
+  }
+}`;
+
+  const userPrompt = `Analyze this specific resume against this specific job description using your chain-of-thought methodology.
+
+Think through each step carefully and provide HIGHLY PERSONALIZED feedback.
+
+=== CANDIDATE'S RESUME ===
+${resumeText}
+
+=== TARGET JOB DESCRIPTION ===
+${jobDescription}
+
+Remember: 
+- Reference SPECIFIC content from the resume (quote exact phrases)
+- Reference SPECIFIC requirements from the job description
+- Do NOT give generic advice that could apply to any resume
+- Every suggestion should be actionable and specific to THIS candidate for THIS role`;
+
+  return { systemPrompt, userPrompt };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -34,51 +158,12 @@ serve(async (req) => {
       );
     }
 
-    console.log("Starting resume analysis...");
+    console.log("Starting personalized resume analysis with chain-of-thought...");
     console.log("Resume length:", resumeText.length, "chars");
     console.log("JD length:", jobDescription.length, "chars");
 
-    const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyst and career coach. Your job is to analyze resumes against job descriptions and provide actionable, personalized feedback.
-
-IMPORTANT: You must return a valid JSON object with this exact structure:
-{
-  "atsScore": <number 0-100>,
-  "jdMatchScore": <number 0-100>,
-  "structureScore": <number 0-100>,
-  "suggestions": {
-    "additions": [<array of specific things to add based on the JD>],
-    "removals": [<array of specific things to remove or modify>],
-    "improvements": [<array of specific improvements to make>]
-  },
-  "structureAnalysis": {
-    "sections": [
-      {"name": "<section name>", "status": "<good|needs-improvement|missing>"}
-    ],
-    "formatting": [<array of formatting recommendations>]
-  }
-}
-
-Scoring Guidelines:
-- ATS Score: How well the resume will parse in ATS systems (formatting, keywords, structure)
-- JD Match Score: How well skills/experience match the job description requirements
-- Structure Score: How well organized and formatted the resume is
-
-Be SPECIFIC and PERSONALIZED:
-- Reference actual content from the resume
-- Reference specific requirements from the job description
-- Suggest exact keywords from the JD that are missing
-- Point out specific sections that need improvement
-- Give actionable advice, not generic tips`;
-
-    const userPrompt = `Analyze this resume against the job description:
-
-=== RESUME ===
-${resumeText}
-
-=== JOB DESCRIPTION ===
-${jobDescription}
-
-Provide a detailed, personalized analysis. Reference specific content from both documents in your suggestions.`;
+    // Create the analysis chain prompts
+    const { systemPrompt, userPrompt } = createAnalysisChain(resumeText, jobDescription);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -140,7 +225,10 @@ Provide a detailed, personalized analysis. Reference specific content from both 
 
     try {
       const analysisResult = JSON.parse(jsonContent);
-      console.log("Analysis complete. ATS Score:", analysisResult.atsScore);
+      console.log("Personalized analysis complete.");
+      console.log("Candidate context:", analysisResult.candidateContext?.name || "Unknown");
+      console.log("ATS Score:", analysisResult.atsScore);
+      console.log("Key findings:", analysisResult.keyFindings?.criticalGaps?.length || 0, "gaps identified");
       
       return new Response(
         JSON.stringify(analysisResult),
