@@ -8,49 +8,67 @@ AICruit is an intelligent resume analysis tool that helps job seekers optimize t
 - **Job Description Matching**: See how closely your resume aligns with specific job requirements
 - **Structure Analysis**: Receive feedback on resume formatting and organization
 - **Smart Suggestions**: Get actionable recommendations for improvements, additions, and removals
+- **Export Improved Resume**: Download an AI-generated improved version with all suggestions applied
 - **PDF Report Generation**: Download a comprehensive analysis report
+- **AI Career Coach Chat**: Get personalized answers to your resume questions
 - **Dark/Light Theme**: Toggle between themes for comfortable viewing
 
 ## Project Structure
 
+### Frontend (`src/`)
+All client-side React application code lives here:
+
 ```
-├── src/                          # 📁 FRONTEND (React + TypeScript)
-│   ├── components/               # React components
-│   │   ├── ui/                   # Reusable UI components (shadcn/ui)
-│   │   ├── AnalyzerSection.tsx   # Main resume analyzer component
-│   │   ├── FileUpload.tsx        # PDF file upload handler
-│   │   ├── ResultsSection.tsx    # Analysis results display
-│   │   ├── ScoreCard.tsx         # Interactive score cards
-│   │   ├── Header.tsx            # App header with navigation
-│   │   ├── Footer.tsx            # App footer
-│   │   └── ...                   # Other UI components
-│   ├── hooks/                    # Custom React hooks
-│   │   ├── use-theme.tsx         # Dark/light theme management
-│   │   └── use-toast.ts          # Toast notifications
-│   ├── lib/                      # Utility functions
-│   │   ├── pdfParser.ts          # PDF text extraction
-│   │   ├── pdfGenerator.ts       # PDF report generation
-│   │   └── utils.ts              # General utilities
-│   ├── pages/                    # Page components
-│   │   ├── Index.tsx             # Main landing page
-│   │   └── NotFound.tsx          # 404 page
-│   ├── integrations/             # External service integrations
-│   │   └── supabase/             # Supabase client configuration
-│   ├── App.tsx                   # Main app component
-│   ├── main.tsx                  # App entry point
-│   └── index.css                 # Global styles & design tokens
-│
-├── supabase/                     # 📁 BACKEND (Edge Functions)
-│   ├── functions/                # Serverless functions
-│   │   └── analyze-resume/       # Resume analysis endpoint
-│   │       └── index.ts          # AI-powered analysis logic
-│   └── config.toml               # Supabase configuration
-│
-├── public/                       # Static assets
-├── index.html                    # HTML entry point
-├── tailwind.config.ts            # Tailwind CSS configuration
-├── vite.config.ts                # Vite build configuration
-└── package.json                  # Dependencies and scripts
+src/
+├── components/               # React components
+│   ├── ui/                   # Reusable UI components (shadcn/ui)
+│   ├── AnalyzerSection.tsx   # Main resume analyzer component
+│   ├── FileUpload.tsx        # PDF file upload handler
+│   ├── ResultsSection.tsx    # Analysis results display
+│   ├── ResumeChat.tsx        # AI career coach chat widget
+│   ├── ScoreCard.tsx         # Interactive score cards
+│   ├── Header.tsx            # App header with navigation
+│   ├── Footer.tsx            # App footer
+│   └── ...                   # Other UI components
+├── hooks/                    # Custom React hooks
+│   ├── use-theme.tsx         # Dark/light theme management
+│   └── use-toast.ts          # Toast notifications
+├── lib/                      # Utility functions
+│   ├── pdfParser.ts          # PDF text extraction
+│   ├── pdfGenerator.ts       # PDF report generation
+│   └── utils.ts              # General utilities
+├── pages/                    # Page components
+│   ├── Index.tsx             # Main landing page
+│   └── NotFound.tsx          # 404 page
+├── integrations/             # External service integrations
+│   └── supabase/             # Supabase client configuration
+├── App.tsx                   # Main app component
+├── main.tsx                  # App entry point
+└── index.css                 # Global styles & design tokens
+```
+
+### Backend (`supabase/functions/`)
+All serverless Edge Functions (API endpoints) live here:
+
+```
+supabase/
+├── functions/                          # Serverless API endpoints
+│   ├── analyze-resume/                 # Resume analysis with LangChain pipeline
+│   │   └── index.ts                    # Multi-chain AI analysis logic
+│   ├── resume-chat/                    # AI career coach chat
+│   │   └── index.ts                    # Conversational AI with memory
+│   └── generate-improved-resume/       # Export improved resume
+│       └── index.ts                    # AI resume rewriter
+└── config.toml                         # Supabase/Edge Functions configuration
+```
+
+### Configuration & Static Files
+```
+├── public/                   # Static assets
+├── index.html                # HTML entry point
+├── tailwind.config.ts        # Tailwind CSS configuration
+├── vite.config.ts            # Vite build configuration
+└── package.json              # Dependencies and scripts
 ```
 
 ## Tech Stack

@@ -1,4 +1,5 @@
-import { Plus, Minus, Lightbulb, CheckCircle, AlertCircle, XCircle, RotateCcw, FileText, Trophy, Download } from "lucide-react";
+import { useState } from "react";
+import { Plus, Minus, Lightbulb, CheckCircle, AlertCircle, XCircle, RotateCcw, FileText, Trophy, Download, FileDown, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import ScoreCard from "./ScoreCard";
@@ -6,13 +7,17 @@ import { cn } from "@/lib/utils";
 import { AnalysisResult } from "./AnalyzerSection";
 import { generateAnalysisReport } from "@/lib/pdfGenerator";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ResultsSectionProps {
   results: AnalysisResult;
+  resumeText: string;
+  jobDescription: string;
   onReset: () => void;
 }
 
-const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
+const ResultsSection = ({ results, resumeText, jobDescription, onReset }: ResultsSectionProps) => {
+  const [isGenerating, setIsGenerating] = useState(false);
   const overallScore = Math.round((results.atsScore + results.jdMatchScore + results.structureScore) / 3);
 
   const handleDownloadReport = async () => {
@@ -32,6 +37,57 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
     }
   };
 
+  const handleExportImprovedResume = async () => {
+    setIsGenerating(true);
+    try {
+      toast({
+        title: "Generating Improved Resume",
+        description: "AI is applying all suggestions to create your optimized resume...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-improved-resume', {
+        body: {
+          resumeText,
+          jobDescription,
+          suggestions: results.suggestions,
+          structureAnalysis: results.structureAnalysis,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to generate improved resume");
+      }
+
+      if (!data?.improvedResume) {
+        throw new Error("No improved resume content received");
+      }
+
+      // Create and download the text file
+      const blob = new Blob([data.improvedResume], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'improved-resume.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Resume Downloaded",
+        description: "Your AI-improved resume has been saved. Copy the content into your preferred document editor.",
+      });
+    } catch (error) {
+      console.error("Failed to generate improved resume:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate improved resume. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   const getStatusIcon = (status: "good" | "needs-improvement" | "missing") => {
     switch (status) {
       case "good":
@@ -286,6 +342,25 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
         <Button 
           variant="hero" 
           size="lg" 
+          onClick={handleExportImprovedResume}
+          disabled={isGenerating}
+          className="gap-2 group hover-lift"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <FileDown className="w-4 h-4 transition-transform group-hover:-translate-y-1 duration-300" />
+              Export Improved Resume
+            </>
+          )}
+        </Button>
+        <Button 
+          variant="outline" 
+          size="lg" 
           onClick={handleDownloadReport} 
           className="gap-2 group hover-lift"
         >
@@ -299,7 +374,7 @@ const ResultsSection = ({ results, onReset }: ResultsSectionProps) => {
           className="gap-2 group hover-lift"
         >
           <RotateCcw className="w-4 h-4 transition-transform group-hover:-rotate-180 duration-500" />
-          Analyze Another Resume
+          Analyze Another
         </Button>
       </div>
     </div>
