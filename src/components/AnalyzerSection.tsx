@@ -242,7 +242,12 @@ const AnalyzerSection = () => {
           </div>
         ) : (
           <>
-            <ResultsSection results={results} onReset={resetAnalysis} />
+            <ResultsSection 
+              results={results} 
+              resumeText={resumeText}
+              jobDescription={jobDescription}
+              onReset={resetAnalysis} 
+            />
             <ResumeChat 
               resumeText={resumeText} 
               jobDescription={jobDescription} 
