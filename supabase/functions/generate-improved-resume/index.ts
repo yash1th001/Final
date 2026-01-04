@@ -9,21 +9,22 @@ const corsHeaders = {
 interface GenerateRequest {
   resumeText: string;
   jobDescription: string;
-  suggestions: {
+  suggestions: string[] | {
     additions: string[];
     removals: string[];
     improvements: string[];
   };
-  structureAnalysis: {
+  structureAnalysis?: {
     sections: Array<{ name: string; status: string }>;
     formatting: string[];
   };
+  preserveStructure?: boolean;
 }
 
 // Prompt template for resume improvement
 const PromptTemplates = {
-  improveResume: (resumeText: string, jobDescription: string, suggestions: GenerateRequest['suggestions'], structureAnalysis: GenerateRequest['structureAnalysis']) => `
-You are an expert resume writer and career coach. Your task is to rewrite and improve the provided resume based on the analysis suggestions.
+  improveResume: (resumeText: string, jobDescription: string, suggestions: string[], formatting: string[], preserveStructure: boolean) => `
+You are an expert resume writer and career coach. Your task is to improve the provided resume based on the suggestions.
 
 ## ORIGINAL RESUME:
 ${resumeText}
@@ -31,39 +32,37 @@ ${resumeText}
 ## TARGET JOB DESCRIPTION:
 ${jobDescription}
 
-## ANALYSIS SUGGESTIONS TO APPLY:
+## SUGGESTIONS TO APPLY:
+${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
-### Things to ADD:
-${suggestions.additions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-### Things to REMOVE or REDUCE:
-${suggestions.removals.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-### Things to IMPROVE:
-${suggestions.improvements.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-### FORMATTING RECOMMENDATIONS:
-${structureAnalysis.formatting.map((f, i) => `${i + 1}. ${f}`).join('\n')}
+${formatting.length > 0 ? `## FORMATTING RECOMMENDATIONS:\n${formatting.map((f, i) => `${i + 1}. ${f}`).join('\n')}` : ''}
 
 ## YOUR TASK:
+${preserveStructure ? `
+IMPORTANT: You MUST preserve the EXACT structure, section order, and general alignment of the original resume.
+- Keep the same sections in the same order
+- Maintain the same formatting style (bullet points, spacing, etc.)
+- Only modify the content within each section to apply the suggestions
+- Do not add new sections or remove existing sections unless explicitly suggested
+- Preserve the visual layout as much as possible
+
+Rewrite the resume by:
+1. Applying the keyword and skill additions within existing sections
+2. Improving bullet points with stronger action verbs and metrics
+3. Optimizing content for ATS without changing the structure
+4. Keeping the candidate's authentic voice and experience
+` : `
 Rewrite the resume incorporating ALL the suggestions above. Create a professional, ATS-optimized resume that:
 1. Applies all the recommended additions (add relevant keywords, skills, achievements)
-2. Removes or minimizes the items flagged for removal
-3. Implements all the improvement suggestions
-4. Follows the formatting recommendations
-5. Uses strong action verbs and quantifiable achievements
-6. Is tailored specifically for the target job description
-7. Maintains a clean, professional structure
+2. Implements all the improvement suggestions
+3. Follows the formatting recommendations
+4. Uses strong action verbs and quantifiable achievements
+5. Is tailored specifically for the target job description
+6. Maintains a clean, professional structure
+`}
 
 ## OUTPUT FORMAT:
-Return ONLY the improved resume content in a clean, professional text format. Use the following structure:
-- Contact information at the top
-- Professional summary (2-3 sentences)
-- Skills section with relevant keywords
-- Work experience with bullet points and achievements
-- Education section
-- Optional: Certifications, Projects, or other relevant sections
-
+Return ONLY the improved resume content in a clean, professional text format.
 Do NOT include any explanations, comments, or markdown formatting. Just the pure resume text that can be directly used in a document.
 `,
 };
@@ -75,19 +74,33 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeText, jobDescription, suggestions, structureAnalysis } = await req.json() as GenerateRequest;
+    const { resumeText, jobDescription, suggestions, structureAnalysis, preserveStructure = false } = await req.json() as GenerateRequest;
 
     console.log("[generate-improved-resume] Starting resume improvement generation");
-    console.log("[generate-improved-resume] Suggestions count - Additions:", suggestions.additions.length, 
-      "Removals:", suggestions.removals.length, "Improvements:", suggestions.improvements.length);
+    console.log("[generate-improved-resume] Preserve structure:", preserveStructure);
+
+    // Normalize suggestions to array format
+    let suggestionsList: string[] = [];
+    if (Array.isArray(suggestions)) {
+      suggestionsList = suggestions;
+    } else if (suggestions && typeof suggestions === 'object') {
+      suggestionsList = [
+        ...(suggestions.additions || []),
+        ...(suggestions.improvements || []),
+      ];
+    }
+
+    console.log("[generate-improved-resume] Suggestions count:", suggestionsList.length);
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    const formatting = structureAnalysis?.formatting || [];
+
     // Generate improved resume using Gemini
-    const prompt = PromptTemplates.improveResume(resumeText, jobDescription, suggestions, structureAnalysis);
+    const prompt = PromptTemplates.improveResume(resumeText, jobDescription, suggestionsList, formatting, preserveStructure);
 
     const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
       method: "POST",
