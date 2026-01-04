@@ -239,32 +239,61 @@ const callLLM = async (
   apiKey: string,
   systemContent: string,
   userContent: string,
-  model: string = "google/gemini-2.5-flash"
+  model: string = "google/gemini-2.5-flash",
+  retries: number = 3
 ): Promise<string> => {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemContent },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      console.log(`[LLM] Attempt ${attempt + 1}/${retries} with model: ${model}`);
+      
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemContent },
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
 
-  if (!response.ok) {
-    const status = response.status;
-    if (status === 429) throw new Error("RATE_LIMIT");
-    if (status === 402) throw new Error("PAYMENT_REQUIRED");
-    throw new Error(`LLM call failed: ${status}`);
+      if (response.status === 503 || response.status === 429) {
+        console.log(`[LLM] Got ${response.status}, retrying after delay...`);
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        continue;
+      }
+
+      if (!response.ok) {
+        const status = response.status;
+        if (status === 429) throw new Error("RATE_LIMIT");
+        if (status === 402) throw new Error("PAYMENT_REQUIRED");
+        throw new Error(`LLM call failed: ${status}`);
+      }
+
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || "";
+    } catch (error) {
+      console.error(`[LLM] Attempt ${attempt + 1} failed:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on these specific errors
+      if (lastError.message === "RATE_LIMIT" || lastError.message === "PAYMENT_REQUIRED") {
+        throw lastError;
+      }
+      
+      if (attempt < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+      }
+    }
   }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  
+  throw lastError || new Error("All LLM retry attempts failed");
 };
 
 // Chain 1: Extract Resume Data
