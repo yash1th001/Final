@@ -5,6 +5,7 @@ import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
 import ResultsSection from "./ResultsSection";
 import ResumeChat from "./ResumeChat";
+import TailoredResumeSection from "./TailoredResumeSection";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
@@ -247,6 +248,11 @@ const AnalyzerSection = () => {
               resumeText={resumeText}
               jobDescription={jobDescription}
               onReset={resetAnalysis} 
+            />
+            <TailoredResumeSection
+              resumeText={resumeText}
+              jobDescription={jobDescription}
+              results={results}
             />
             <ResumeChat 
               resumeText={resumeText} 
