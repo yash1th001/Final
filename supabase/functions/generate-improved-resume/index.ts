@@ -99,39 +99,66 @@ serve(async (req) => {
 
     const formatting = structureAnalysis?.formatting || [];
 
-    // Generate improved resume using Gemini
+    // Generate improved resume using Gemini with retry logic
     const prompt = PromptTemplates.improveResume(resumeText, jobDescription, suggestionsList, formatting, preserveStructure);
 
-    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 4000,
-      }),
-    });
+    const callLLM = async (model: string, retries = 3): Promise<string> => {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          console.log(`[generate-improved-resume] Attempt ${attempt} with model ${model}`);
+          
+          const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.4,
+              max_tokens: 4000,
+            }),
+          });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-improved-resume] API Error:", errorText);
-      throw new Error(`AI API request failed: ${response.status}`);
-    }
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[generate-improved-resume] API Error (attempt ${attempt}):`, errorText);
+            
+            // Retry on 503 or 429 errors
+            if ((response.status === 503 || response.status === 429) && attempt < retries) {
+              const delay = Math.pow(2, attempt) * 1000;
+              console.log(`[generate-improved-resume] Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+            throw new Error(`AI API request failed: ${response.status}`);
+          }
 
-    const data = await response.json();
-    const improvedResume = data.choices?.[0]?.message?.content;
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          
+          if (!content) {
+            throw new Error("No content in response");
+          }
+          
+          return content;
+        } catch (error) {
+          if (attempt === retries) throw error;
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`[generate-improved-resume] Error, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+      throw new Error("Max retries exceeded");
+    };
 
-    if (!improvedResume) {
-      throw new Error("No improved resume content generated");
+    let improvedResume: string;
+    try {
+      improvedResume = await callLLM("google/gemini-2.5-flash");
+    } catch (error) {
+      console.log("[generate-improved-resume] Primary model failed, trying fallback...");
+      improvedResume = await callLLM("google/gemini-2.5-flash-lite");
     }
 
     console.log("[generate-improved-resume] Successfully generated improved resume");
