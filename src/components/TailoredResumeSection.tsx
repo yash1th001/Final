@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { FileEdit, Loader2, Copy, Check, Download } from "lucide-react";
+import { FileEdit, Loader2, Copy, Check, Download, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisResult } from "./AnalyzerSection";
+import { generateResumePdf } from "@/lib/resumePdfGenerator";
 
 interface TailoredResumeSectionProps {
   resumeText: string;
@@ -85,7 +86,7 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadTxt = () => {
     if (!tailoredResume) return;
     
     const blob = new Blob([tailoredResume], { type: 'text/plain' });
@@ -100,8 +101,33 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
     
     toast({
       title: "Downloaded!",
-      description: "Your tailored resume has been saved.",
+      description: "Your tailored resume has been saved as text.",
     });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!tailoredResume) return;
+    
+    try {
+      toast({
+        title: "Generating PDF",
+        description: "Creating your professionally formatted resume...",
+      });
+      
+      await generateResumePdf(tailoredResume);
+      
+      toast({
+        title: "PDF Downloaded!",
+        description: "Your ATS-friendly resume PDF has been saved.",
+      });
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      toast({
+        title: "PDF Generation Failed",
+        description: "Please try again or download as text.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -179,13 +205,22 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
                 )}
               </Button>
               <Button
+                variant="default"
+                size="sm"
+                onClick={handleDownloadPdf}
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Download PDF
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
-                onClick={handleDownload}
+                onClick={handleDownloadTxt}
                 className="gap-2"
               >
                 <Download className="w-4 h-4" />
-                Download
+                Text
               </Button>
               <Button
                 variant="ghost"
