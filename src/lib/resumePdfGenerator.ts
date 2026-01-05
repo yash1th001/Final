@@ -1,126 +1,188 @@
 import { jsPDF } from 'jspdf';
 
-interface ResumeSection {
-  type: 'header' | 'section' | 'experience' | 'education' | 'skills' | 'bullet';
+interface ParsedSection {
+  type: 'header' | 'contact' | 'objective' | 'section-title' | 'education-entry' | 'project-entry' | 'skills' | 'certification' | 'achievement' | 'bullet' | 'text';
   content: string;
   subContent?: string;
   date?: string;
   location?: string;
+  link?: string;
 }
 
-function parseResumeText(resumeText: string): ResumeSection[] {
-  const sections: ResumeSection[] = [];
-  const lines = resumeText.split('\n').filter(line => line.trim());
+function parseResumeForLatexStyle(resumeText: string): ParsedSection[] {
+  const sections: ParsedSection[] = [];
+  const lines = resumeText.split('\n');
   
-  let currentSection = '';
-  let i = 0;
-  
-  // Common section headers
   const sectionHeaders = [
+    'objective', 'summary', 'professional summary', 'profile',
+    'education', 'academic background',
     'experience', 'work experience', 'professional experience', 'employment',
-    'education', 'academic background', 'qualifications',
-    'skills', 'technical skills', 'core competencies', 'competencies',
     'projects', 'personal projects', 'key projects',
+    'skills', 'technical skills', 'core competencies',
     'certifications', 'certificates', 'licenses',
-    'summary', 'professional summary', 'objective', 'profile',
     'achievements', 'accomplishments', 'awards',
     'languages', 'interests', 'hobbies', 'publications', 'references'
   ];
   
-  while (i < lines.length) {
+  let currentSection = '';
+  let headerFound = false;
+  let contactBuffer: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    if (!line) continue;
+    
     const lowerLine = line.toLowerCase().replace(/[:\-–—]/g, '').trim();
     
-    // Check if this is the name (first non-empty line, typically)
-    if (i === 0 && !sectionHeaders.includes(lowerLine)) {
-      sections.push({ type: 'header', content: line });
-      i++;
-      continue;
-    }
-    
-    // Check for contact info line (email, phone, linkedin, etc.)
-    if (i <= 3 && (line.includes('@') || line.includes('|') || /\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/.test(line) || line.includes('linkedin'))) {
-      if (sections.length > 0 && sections[sections.length - 1].type === 'header') {
-        sections[sections.length - 1].subContent = (sections[sections.length - 1].subContent || '') + (sections[sections.length - 1].subContent ? ' | ' : '') + line;
+    // Check if this is the name (first substantial line that's not a section header)
+    if (!headerFound && !sectionHeaders.includes(lowerLine)) {
+      // Check if it looks like a name (capitalized words, no special chars like @ or numbers)
+      if (!/[@|]/.test(line) && !/\d{3}/.test(line) && line.length < 50) {
+        sections.push({ type: 'header', content: line });
+        headerFound = true;
+        continue;
       }
-      i++;
+    }
+    
+    // Collect contact info (phone, email, linkedin, github)
+    if (headerFound && (
+      line.includes('@') || 
+      line.includes('linkedin') || 
+      line.includes('github') || 
+      /\+?\d{1,3}[-.\s]?\d{3,}/.test(line) ||
+      line.includes('|')
+    )) {
+      contactBuffer.push(line);
       continue;
     }
     
-    // Check if line is a section header
-    if (sectionHeaders.includes(lowerLine) || sectionHeaders.some(h => lowerLine.startsWith(h))) {
+    // Flush contact buffer when we hit a section
+    if (contactBuffer.length > 0 && sectionHeaders.includes(lowerLine)) {
+      sections.push({ type: 'contact', content: contactBuffer.join(' | ') });
+      contactBuffer = [];
+    }
+    
+    // Section headers
+    if (sectionHeaders.includes(lowerLine) || sectionHeaders.some(h => lowerLine === h || lowerLine.startsWith(h + ' '))) {
+      if (contactBuffer.length > 0) {
+        sections.push({ type: 'contact', content: contactBuffer.join(' | ') });
+        contactBuffer = [];
+      }
       currentSection = lowerLine;
-      sections.push({ type: 'section', content: line.replace(/[:\-–—]$/, '').trim() });
-      i++;
+      sections.push({ type: 'section-title', content: line.replace(/[:\-–—]$/, '').trim().toUpperCase() });
       continue;
     }
     
-    // Check for experience/education entries (Company/School - Title/Degree pattern)
-    const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)[\s,]*\d{4}\s*[-–—to]+\s*(?:Present|Current|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)?[\s,]*\d{0,4}|\d{4}\s*[-–—to]+\s*(?:Present|Current|\d{4})|\d{1,2}\/\d{4}\s*[-–—to]+\s*(?:Present|Current|\d{1,2}\/\d{4})/i;
+    // Date pattern for entries
+    const datePattern = /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.\s]*\d{4}\s*[-–—to]+\s*(?:Present|Current|Expected|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.\s]*\d{4})?|\d{4}\s*[-–—to]+\s*(?:Present|Current|Expected|\d{4})/gi;
     
-    const hasDate = datePattern.test(line);
-    const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
-    
-    // Determine if this is an experience/education entry
-    if ((currentSection.includes('experience') || currentSection.includes('employment') || currentSection.includes('work')) && !line.startsWith('•') && !line.startsWith('-') && !line.startsWith('*') && !line.startsWith('–')) {
-      // Check if this looks like a job title or company
-      if (hasDate || (nextLine && datePattern.test(nextLine))) {
-        const dateMatch = line.match(datePattern) || (nextLine ? nextLine.match(datePattern) : null);
+    // Education entries
+    if (currentSection.includes('education')) {
+      const dateMatch = line.match(datePattern);
+      if (dateMatch || line.includes('University') || line.includes('College') || line.includes('Institute') || line.includes('B.Tech') || line.includes('M.Tech') || line.includes('Bachelor') || line.includes('Master')) {
         const cleanLine = line.replace(datePattern, '').trim();
+        // Check next line for degree/title
+        const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
+        const nextDateMatch = nextLine.match(datePattern);
         
         sections.push({
-          type: 'experience',
+          type: 'education-entry',
           content: cleanLine || line,
-          date: dateMatch ? dateMatch[0].trim() : undefined,
+          date: dateMatch ? dateMatch[0] : (nextDateMatch ? nextDateMatch[0] : undefined),
+          subContent: nextLine && !sectionHeaders.includes(nextLine.toLowerCase()) && !nextLine.startsWith('•') ? nextLine.replace(datePattern, '').trim() : undefined
         });
-        i++;
+        
+        if (nextLine && !sectionHeaders.includes(nextLine.toLowerCase()) && !nextLine.startsWith('•')) {
+          i++; // Skip next line as we consumed it
+        }
         continue;
       }
     }
     
-    if ((currentSection.includes('education') || currentSection.includes('academic')) && !line.startsWith('•') && !line.startsWith('-') && !line.startsWith('*')) {
-      if (hasDate || (nextLine && datePattern.test(nextLine)) || line.includes('University') || line.includes('College') || line.includes('Institute') || line.includes('School') || line.includes('Bachelor') || line.includes('Master') || line.includes('PhD') || line.includes('Degree')) {
-        const dateMatch = line.match(datePattern) || (nextLine ? nextLine.match(datePattern) : null);
-        const cleanLine = line.replace(datePattern, '').trim();
-        
+    // Project entries
+    if (currentSection.includes('project')) {
+      const dateMatch = line.match(datePattern);
+      const techMatch = line.match(/\|([^|]+)$/);
+      
+      if (!line.startsWith('•') && !line.startsWith('-') && !line.startsWith('*') && (dateMatch || techMatch || line.includes('$|$'))) {
+        const parts = line.split(/\s*\|\s*/);
         sections.push({
-          type: 'education',
-          content: cleanLine || line,
-          date: dateMatch ? dateMatch[0].trim() : undefined,
+          type: 'project-entry',
+          content: parts[0].replace(datePattern, '').trim(),
+          subContent: parts.length > 1 ? parts.slice(1).join(' | ').replace(datePattern, '').trim() : undefined,
+          date: dateMatch ? dateMatch[0] : undefined
         });
-        i++;
         continue;
       }
     }
     
-    // Check for bullet points
-    if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('–') || line.startsWith('○')) {
-      sections.push({
-        type: 'bullet',
-        content: line.replace(/^[•\-*–○]\s*/, '').trim()
-      });
-      i++;
-      continue;
+    // Experience entries
+    if (currentSection.includes('experience') || currentSection.includes('employment')) {
+      const dateMatch = line.match(datePattern);
+      if (!line.startsWith('•') && !line.startsWith('-') && !line.startsWith('*') && dateMatch) {
+        const cleanLine = line.replace(datePattern, '').trim();
+        const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
+        
+        sections.push({
+          type: 'education-entry', // Using same format
+          content: cleanLine,
+          date: dateMatch[0],
+          subContent: nextLine && !sectionHeaders.includes(nextLine.toLowerCase()) && !nextLine.startsWith('•') ? nextLine.replace(datePattern, '').trim() : undefined
+        });
+        
+        if (nextLine && !sectionHeaders.includes(nextLine.toLowerCase()) && !nextLine.startsWith('•')) {
+          i++;
+        }
+        continue;
+      }
     }
     
-    // Skills section - comma-separated items
+    // Skills section
     if (currentSection.includes('skill') || currentSection.includes('competenc')) {
-      sections.push({
-        type: 'skills',
-        content: line
-      });
-      i++;
+      sections.push({ type: 'skills', content: line });
       continue;
     }
     
-    // Default: treat as bullet or content
-    if (line.length > 0) {
+    // Certifications
+    if (currentSection.includes('certif')) {
+      sections.push({ type: 'certification', content: line.replace(/^[•\-*–○]\s*/, '') });
+      continue;
+    }
+    
+    // Achievements
+    if (currentSection.includes('achieve') || currentSection.includes('accomplish') || currentSection.includes('award')) {
+      sections.push({ type: 'achievement', content: line.replace(/^[•\-*–○]\s*/, '') });
+      continue;
+    }
+    
+    // Objective/Summary content
+    if (currentSection.includes('objective') || currentSection.includes('summary') || currentSection.includes('profile')) {
+      sections.push({ type: 'objective', content: line });
+      continue;
+    }
+    
+    // Bullet points
+    if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('–') || line.startsWith('○')) {
+      const bulletContent = line.replace(/^[•\-*–○]\s*/, '').trim();
+      // Check for GitHub link
+      const linkMatch = bulletContent.match(/https?:\/\/[^\s]+/);
       sections.push({
         type: 'bullet',
-        content: line
+        content: bulletContent.replace(/https?:\/\/[^\s]+/, '').trim(),
+        link: linkMatch ? linkMatch[0] : undefined
       });
+      continue;
     }
-    i++;
+    
+    // Default text
+    if (line.length > 0 && !line.match(/^[{}\\]/)) {
+      sections.push({ type: 'text', content: line });
+    }
+  }
+  
+  // Flush remaining contact info
+  if (contactBuffer.length > 0) {
+    sections.splice(1, 0, { type: 'contact', content: contactBuffer.join(' | ') });
   }
   
   return sections;
@@ -129,31 +191,51 @@ function parseResumeText(resumeText: string): ResumeSection[] {
 export async function generateResumePdf(resumeText: string): Promise<void> {
   const doc = new jsPDF({
     orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
+    unit: 'pt', // Use points for finer control (1 pt = 1/72 inch)
+    format: 'letter', // US Letter: 612 x 792 pts
   });
   
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const marginLeft = 15;
-  const marginRight = 15;
-  const marginTop = 15;
-  const marginBottom = 15;
+  
+  // Margins matching LaTeX template (0.5in = 36pt)
+  const marginLeft = 36;
+  const marginRight = 36;
+  const marginTop = 36;
+  const marginBottom = 36;
   const contentWidth = pageWidth - marginLeft - marginRight;
   
   let yPosition = marginTop;
   const maxY = pageHeight - marginBottom;
   
-  // Colors - Professional ATS-friendly colors
+  // Colors
   const black: [number, number, number] = [0, 0, 0];
-  const darkGray: [number, number, number] = [50, 50, 50];
-  const accentBlue: [number, number, number] = [0, 51, 102]; // Professional navy blue
   
-  // Parse the resume
-  const sections = parseResumeText(resumeText);
+  // Font sizes matching LaTeX (11pt base)
+  const FONT_SIZE = {
+    name: 16,
+    contact: 9,
+    section: 11,
+    subheading: 10,
+    subheadingItalic: 9,
+    body: 9,
+    small: 8
+  };
   
-  // Helper function to check and add new page if needed
-  const checkNewPage = (neededSpace: number) => {
+  // Line heights
+  const LINE_HEIGHT = {
+    name: 20,
+    contact: 12,
+    section: 16,
+    subheading: 13,
+    body: 11,
+    bullet: 11
+  };
+  
+  const sections = parseResumeForLatexStyle(resumeText);
+  
+  // Helper to check page break
+  const checkNewPage = (neededSpace: number): boolean => {
     if (yPosition + neededSpace > maxY) {
       doc.addPage();
       yPosition = marginTop;
@@ -162,162 +244,263 @@ export async function generateResumePdf(resumeText: string): Promise<void> {
     return false;
   };
   
-  // Helper function to add text with word wrapping
-  const addWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, fontStyle: string = 'normal', color: [number, number, number] = darkGray) => {
-    doc.setFontSize(fontSize);
-    doc.setFont('helvetica', fontStyle);
-    doc.setTextColor(...color);
+  // Draw section title with rule line (LaTeX style)
+  const drawSectionTitle = (title: string) => {
+    checkNewPage(25);
+    yPosition += 8;
     
-    const lines = doc.splitTextToSize(text, maxWidth);
-    const lineHeight = fontSize * 0.4;
+    doc.setFontSize(FONT_SIZE.section);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...black);
     
-    lines.forEach((line: string) => {
-      checkNewPage(lineHeight + 2);
-      doc.text(line, x, yPosition);
-      yPosition += lineHeight;
-    });
+    // Small caps effect - use uppercase
+    doc.text(title.toUpperCase(), marginLeft, yPosition);
     
-    return lines.length;
+    // Draw horizontal rule below
+    yPosition += 3;
+    doc.setDrawColor(...black);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft, yPosition, pageWidth - marginRight, yPosition);
+    yPosition += 8;
   };
   
-  // Process each section
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i];
+  // Draw two-column subheading (company/date, title/location)
+  const drawSubheading = (main: string, date?: string, sub?: string, subRight?: string) => {
+    checkNewPage(30);
     
+    // First row: Main heading (bold) + Date (right-aligned)
+    doc.setFontSize(FONT_SIZE.subheading);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...black);
+    doc.text(main, marginLeft, yPosition);
+    
+    if (date) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(date, pageWidth - marginRight, yPosition, { align: 'right' });
+    }
+    yPosition += LINE_HEIGHT.subheading;
+    
+    // Second row: Subtitle (italic) + Location (right-aligned, italic)
+    if (sub) {
+      doc.setFontSize(FONT_SIZE.subheadingItalic);
+      doc.setFont('helvetica', 'italic');
+      doc.text(sub, marginLeft, yPosition);
+      
+      if (subRight) {
+        doc.text(subRight, pageWidth - marginRight, yPosition, { align: 'right' });
+      }
+      yPosition += LINE_HEIGHT.body + 2;
+    }
+  };
+  
+  // Draw bullet point
+  const drawBullet = (text: string, hasLink?: boolean) => {
+    checkNewPage(15);
+    
+    doc.setFontSize(FONT_SIZE.body);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...black);
+    
+    const bulletX = marginLeft + 10;
+    const textX = marginLeft + 20;
+    const maxWidth = contentWidth - 20;
+    
+    // Draw bullet
+    doc.text('•', bulletX, yPosition);
+    
+    // Wrap text
+    const lines = doc.splitTextToSize(text, maxWidth);
+    lines.forEach((line: string, idx: number) => {
+      if (idx > 0) checkNewPage(LINE_HEIGHT.bullet);
+      doc.text(line, idx === 0 ? textX : textX, yPosition);
+      yPosition += LINE_HEIGHT.bullet;
+    });
+    
+    yPosition += 2;
+  };
+  
+  // Process sections
+  for (const section of sections) {
     switch (section.type) {
       case 'header':
-        // Name - Large, bold, centered
-        checkNewPage(20);
-        doc.setFontSize(22);
+        // Centered name, large bold
+        doc.setFontSize(FONT_SIZE.name);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...black);
-        doc.text(section.content.toUpperCase(), pageWidth / 2, yPosition, { align: 'center' });
-        yPosition += 7;
+        doc.text(section.content, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += LINE_HEIGHT.name;
+        break;
         
-        // Contact info
-        if (section.subContent) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(...darkGray);
-          
-          // Clean up and format contact info
-          const contactInfo = section.subContent.replace(/\s*\|\s*/g, '  •  ');
-          const contactLines = doc.splitTextToSize(contactInfo, contentWidth - 20);
-          contactLines.forEach((line: string) => {
-            doc.text(line, pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 4;
-          });
-        }
+      case 'contact':
+        // Contact line centered with pipe separators
+        doc.setFontSize(FONT_SIZE.contact);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...black);
+        
+        // Clean up and format
+        let contactText = section.content
+          .replace(/\$\|\$/g, ' | ')
+          .replace(/\\href\{[^}]+\}\{\\underline\{([^}]+)\}\}/g, '$1')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        const contactLines = doc.splitTextToSize(contactText, contentWidth - 40);
+        contactLines.forEach((line: string) => {
+          doc.text(line, pageWidth / 2, yPosition, { align: 'center' });
+          yPosition += LINE_HEIGHT.contact;
+        });
         yPosition += 4;
         break;
         
-      case 'section':
-        // Section header with underline
-        checkNewPage(12);
-        yPosition += 4;
+      case 'section-title':
+        drawSectionTitle(section.content);
+        break;
         
-        doc.setFontSize(11);
+      case 'objective':
+        checkNewPage(20);
+        doc.setFontSize(FONT_SIZE.body);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...black);
+        
+        const objLines = doc.splitTextToSize(section.content, contentWidth);
+        objLines.forEach((line: string) => {
+          checkNewPage(LINE_HEIGHT.body);
+          doc.text(line, marginLeft, yPosition);
+          yPosition += LINE_HEIGHT.body;
+        });
+        yPosition += 4;
+        break;
+        
+      case 'education-entry':
+        // Parse location from content if present
+        const eduParts = section.content.split(/[,\-–—]/).map(p => p.trim());
+        const location = eduParts.length > 1 ? eduParts[eduParts.length - 1] : undefined;
+        const institution = eduParts.length > 1 ? eduParts.slice(0, -1).join(', ') : section.content;
+        
+        drawSubheading(
+          institution,
+          section.date,
+          section.subContent,
+          location
+        );
+        break;
+        
+      case 'project-entry':
+        checkNewPage(20);
+        
+        // Project name (bold) + tech stack | date
+        doc.setFontSize(FONT_SIZE.subheading);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...accentBlue);
-        doc.text(section.content.toUpperCase(), marginLeft, yPosition);
+        doc.setTextColor(...black);
         
-        // Underline
-        yPosition += 1;
-        doc.setDrawColor(...accentBlue);
-        doc.setLineWidth(0.5);
-        doc.line(marginLeft, yPosition, pageWidth - marginRight, yPosition);
-        yPosition += 5;
-        break;
-        
-      case 'experience':
-      case 'education':
-        checkNewPage(12);
-        
-        // Split content if it contains role/company or degree/school
-        const parts = section.content.split(/[,|–—-]/).map(p => p.trim()).filter(p => p);
-        
-        if (parts.length >= 2) {
-          // First part (Company/School) - Bold
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(...black);
-          doc.text(parts[0], marginLeft, yPosition);
-          
-          // Date on the right
-          if (section.date) {
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(...darkGray);
-            doc.text(section.date, pageWidth - marginRight, yPosition, { align: 'right' });
-          }
-          yPosition += 4;
-          
-          // Second part (Title/Degree) - Italic
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(...darkGray);
-          doc.text(parts.slice(1).join(', '), marginLeft, yPosition);
-          yPosition += 4;
-        } else {
-          // Single line entry
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(...black);
-          doc.text(section.content, marginLeft, yPosition);
-          
-          if (section.date) {
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(...darkGray);
-            doc.text(section.date, pageWidth - marginRight, yPosition, { align: 'right' });
-          }
-          yPosition += 5;
+        let projectTitle = section.content;
+        if (section.subContent) {
+          projectTitle += ' | ' + section.subContent;
         }
+        
+        const maxTitleWidth = section.date ? contentWidth - 80 : contentWidth;
+        const titleLines = doc.splitTextToSize(projectTitle, maxTitleWidth);
+        doc.text(titleLines[0], marginLeft, yPosition);
+        
+        if (section.date) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(FONT_SIZE.small);
+          doc.text(section.date, pageWidth - marginRight, yPosition, { align: 'right' });
+        }
+        yPosition += LINE_HEIGHT.subheading + 2;
         break;
         
       case 'bullet':
-        checkNewPage(8);
-        
-        // Bullet point
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(...darkGray);
-        
-        const bulletText = `• ${section.content}`;
-        const bulletLines = doc.splitTextToSize(bulletText, contentWidth - 5);
-        const bulletLineHeight = 3.8;
-        
-        bulletLines.forEach((line: string, idx: number) => {
-          checkNewPage(bulletLineHeight + 1);
-          const xPos = idx === 0 ? marginLeft : marginLeft + 3;
-          doc.text(idx === 0 ? line : line, xPos, yPosition);
-          yPosition += bulletLineHeight;
-        });
-        yPosition += 1;
+        let bulletText = section.content;
+        if (section.link) {
+          bulletText += ' [GitHub]';
+        }
+        drawBullet(bulletText);
         break;
         
       case 'skills':
-        checkNewPage(8);
+        checkNewPage(15);
+        doc.setFontSize(FONT_SIZE.body);
         
-        doc.setFontSize(9);
+        // Check if it's a "Category: Items" format
+        const skillMatch = section.content.match(/^([^:]+):\s*(.+)$/);
+        if (skillMatch) {
+          doc.setFont('helvetica', 'bold');
+          doc.text(skillMatch[1] + ': ', marginLeft, yPosition);
+          
+          const boldWidth = doc.getTextWidth(skillMatch[1] + ': ');
+          doc.setFont('helvetica', 'normal');
+          
+          const remainingWidth = contentWidth - boldWidth;
+          const skillLines = doc.splitTextToSize(skillMatch[2], remainingWidth);
+          
+          skillLines.forEach((line: string, idx: number) => {
+            if (idx === 0) {
+              doc.text(line, marginLeft + boldWidth, yPosition);
+            } else {
+              yPosition += LINE_HEIGHT.body;
+              checkNewPage(LINE_HEIGHT.body);
+              doc.text(line, marginLeft, yPosition);
+            }
+          });
+        } else {
+          doc.setFont('helvetica', 'normal');
+          const lines = doc.splitTextToSize(section.content, contentWidth);
+          lines.forEach((line: string) => {
+            doc.text(line, marginLeft, yPosition);
+            yPosition += LINE_HEIGHT.body;
+          });
+          yPosition -= LINE_HEIGHT.body; // Adjust for loop
+        }
+        yPosition += LINE_HEIGHT.body + 2;
+        break;
+        
+      case 'certification':
+        checkNewPage(15);
+        doc.setFontSize(FONT_SIZE.body);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(...darkGray);
+        doc.setTextColor(...black);
         
-        const skillLines = doc.splitTextToSize(section.content, contentWidth);
-        skillLines.forEach((line: string) => {
-          checkNewPage(4);
+        // Add bullet for certifications
+        doc.text('•', marginLeft + 10, yPosition);
+        const certLines = doc.splitTextToSize(section.content, contentWidth - 20);
+        certLines.forEach((line: string, idx: number) => {
+          doc.text(line, marginLeft + 20, yPosition);
+          if (idx < certLines.length - 1) {
+            yPosition += LINE_HEIGHT.body;
+            checkNewPage(LINE_HEIGHT.body);
+          }
+        });
+        yPosition += LINE_HEIGHT.body + 2;
+        break;
+        
+      case 'achievement':
+        checkNewPage(20);
+        doc.setFontSize(FONT_SIZE.body);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...black);
+        
+        const achieveLines = doc.splitTextToSize(section.content, contentWidth - 10);
+        achieveLines.forEach((line: string) => {
+          checkNewPage(LINE_HEIGHT.body);
+          doc.text(line, marginLeft + 5, yPosition);
+          yPosition += LINE_HEIGHT.body;
+        });
+        yPosition += 4;
+        break;
+        
+      case 'text':
+        checkNewPage(15);
+        doc.setFontSize(FONT_SIZE.body);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...black);
+        
+        const textLines = doc.splitTextToSize(section.content, contentWidth);
+        textLines.forEach((line: string) => {
           doc.text(line, marginLeft, yPosition);
-          yPosition += 4;
+          yPosition += LINE_HEIGHT.body;
         });
         break;
-    }
-  }
-  
-  // Ensure it fits in one page - if not, reduce font sizes proportionally
-  const totalPages = doc.getNumberOfPages();
-  if (totalPages > 1) {
-    // Regenerate with smaller fonts if it exceeds one page
-    doc.deletePage(2);
-    while (doc.getNumberOfPages() > 1) {
-      doc.deletePage(doc.getNumberOfPages());
     }
   }
   
