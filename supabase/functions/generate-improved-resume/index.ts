@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface GenerateRequest {
   resumeText: string;
-  jobDescription: string;
+  jobDescription: string | null;
   suggestions: string[] | {
     additions: string[];
     removals: string[];
@@ -23,14 +23,13 @@ interface GenerateRequest {
 
 // Prompt template for resume improvement
 const PromptTemplates = {
-  improveResume: (resumeText: string, jobDescription: string, suggestions: string[], formatting: string[], preserveStructure: boolean) => `
+  improveResume: (resumeText: string, jobDescription: string | null, suggestions: string[], formatting: string[], preserveStructure: boolean) => `
 You are an expert resume writer and career coach. Your task is to improve the provided resume based on the suggestions.
 
 ## ORIGINAL RESUME:
 ${resumeText}
 
-## TARGET JOB DESCRIPTION:
-${jobDescription}
+${jobDescription ? `## TARGET JOB DESCRIPTION:\n${jobDescription}` : '## NOTE: No specific job description provided. Focus on general ATS optimization and professional improvements.'}
 
 ## SUGGESTIONS TO APPLY:
 ${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
@@ -57,13 +56,77 @@ Rewrite the resume incorporating ALL the suggestions above. Create a professiona
 2. Implements all the improvement suggestions
 3. Follows the formatting recommendations
 4. Uses strong action verbs and quantifiable achievements
-5. Is tailored specifically for the target job description
+${jobDescription ? '5. Is tailored specifically for the target job description' : '5. Is optimized for general ATS compatibility'}
 6. Maintains a clean, professional structure
 `}
 
+## REQUIRED OUTPUT STRUCTURE (LaTeX ATS Resume Format):
+The resume MUST follow this exact structure for maximum ATS compatibility:
+
+1. **HEADER** (centered):
+   - Full Name (large, bold)
+   - Contact info on one line: Phone | Email | LinkedIn | GitHub
+
+2. **OBJECTIVE/SUMMARY** (if present in original):
+   - Brief 2-3 sentence professional summary
+
+3. **EDUCATION**:
+   Format each entry as:
+   Institution Name | Location
+   Degree - GPA/Percentage | Dates
+
+4. **EXPERIENCE** (if present):
+   Format each entry as:
+   Company/Position | Location
+   Role Title | Dates
+   • Bullet point achievements with metrics
+
+5. **PROJECTS**:
+   Format each entry as:
+   Project Name | Technologies Used | Date
+   • Bullet point descriptions
+   • GitHub Link (if available)
+
+6. **SKILLS**:
+   Format as:
+   Languages: Python, Java, etc.
+   Machine Learning: skill1, skill2, etc.
+   Frameworks: framework1, framework2, etc.
+   Tools: tool1, tool2, etc.
+
+7. **CERTIFICATIONS** (if present):
+   • Certification Name -- Issuing Organization
+
+8. **ACHIEVEMENTS** (if present):
+   • Achievement description
+
 ## OUTPUT FORMAT:
-Return ONLY the improved resume content in a clean, professional text format.
-Do NOT include any explanations, comments, or markdown formatting. Just the pure resume text that can be directly used in a document.
+Return ONLY the improved resume content in clean text format following the structure above.
+Use | as separators between items on the same line.
+Use • for bullet points.
+Do NOT include any explanations, comments, or markdown formatting.
+`,
+
+  scoreResume: (resumeText: string, jobDescription: string | null) => `
+You are an ATS scoring expert. Evaluate the following resume and provide scores.
+
+## RESUME:
+${resumeText}
+
+${jobDescription ? `## JOB DESCRIPTION:\n${jobDescription}` : ''}
+
+## SCORING CRITERIA:
+- ATS Score (0-100): Keyword optimization, standard sections, parsability, formatting
+${jobDescription ? '- JD Match Score (0-100): Skills alignment, experience match, keyword coverage' : ''}
+- Structure Score (0-100): Organization, formatting, section completeness
+
+Return ONLY a JSON object:
+{
+  "atsScore": <number>,
+  ${jobDescription ? '"jdMatchScore": <number>,' : ''}
+  "structureScore": <number>,
+  "feedback": "<brief feedback on areas to improve>"
+}
 `,
 };
 
@@ -78,6 +141,7 @@ serve(async (req) => {
 
     console.log("[generate-improved-resume] Starting resume improvement generation");
     console.log("[generate-improved-resume] Preserve structure:", preserveStructure);
+    console.log("[generate-improved-resume] Has job description:", !!jobDescription);
 
     // Normalize suggestions to array format
     let suggestionsList: string[] = [];
@@ -99,10 +163,7 @@ serve(async (req) => {
 
     const formatting = structureAnalysis?.formatting || [];
 
-    // Generate improved resume using Gemini with retry logic
-    const prompt = PromptTemplates.improveResume(resumeText, jobDescription, suggestionsList, formatting, preserveStructure);
-
-    const callLLM = async (model: string, retries = 3): Promise<string> => {
+    const callLLM = async (promptText: string, model: string, retries = 3): Promise<string> => {
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
           console.log(`[generate-improved-resume] Attempt ${attempt} with model ${model}`);
@@ -115,7 +176,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model,
-              messages: [{ role: "user", content: prompt }],
+              messages: [{ role: "user", content: promptText }],
               temperature: 0.4,
               max_tokens: 4000,
             }),
@@ -125,7 +186,6 @@ serve(async (req) => {
             const errorText = await response.text();
             console.error(`[generate-improved-resume] API Error (attempt ${attempt}):`, errorText);
             
-            // Retry on 503 or 429 errors
             if ((response.status === 503 || response.status === 429) && attempt < retries) {
               const delay = Math.pow(2, attempt) * 1000;
               console.log(`[generate-improved-resume] Retrying in ${delay}ms...`);
@@ -153,20 +213,42 @@ serve(async (req) => {
       throw new Error("Max retries exceeded");
     };
 
+    // Step 1: Generate improved resume
+    const improvePrompt = PromptTemplates.improveResume(resumeText, jobDescription, suggestionsList, formatting, preserveStructure);
+    
     let improvedResume: string;
     try {
-      improvedResume = await callLLM("google/gemini-2.5-flash");
+      improvedResume = await callLLM(improvePrompt, "google/gemini-2.5-flash");
     } catch (error) {
       console.log("[generate-improved-resume] Primary model failed, trying fallback...");
-      improvedResume = await callLLM("google/gemini-2.5-flash-lite");
+      improvedResume = await callLLM(improvePrompt, "google/gemini-2.5-flash-lite");
     }
 
     console.log("[generate-improved-resume] Successfully generated improved resume");
     console.log("[generate-improved-resume] Output length:", improvedResume.length, "characters");
 
+    // Step 2: Score the improved resume to validate quality
+    let scores = null;
+    try {
+      const scorePrompt = PromptTemplates.scoreResume(improvedResume, jobDescription);
+      const scoreResponse = await callLLM(scorePrompt, "google/gemini-2.5-flash-lite");
+      
+      // Parse the JSON response
+      let jsonContent = scoreResponse;
+      const jsonMatch = scoreResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1].trim();
+      }
+      scores = JSON.parse(jsonContent);
+      console.log("[generate-improved-resume] Resume scores:", scores);
+    } catch (scoreError) {
+      console.log("[generate-improved-resume] Could not score resume, continuing without scores:", scoreError);
+    }
+
     return new Response(
       JSON.stringify({ 
         improvedResume,
+        scores,
         success: true 
       }),
       { 
