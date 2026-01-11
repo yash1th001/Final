@@ -11,15 +11,15 @@ const corsHeaders = {
 
 interface AnalysisRequest {
   resumeText: string;
-  jobDescription: string;
+  jobDescription: string | null;
 }
 
 interface ChainContext {
   resumeText: string;
-  jobDescription: string;
+  jobDescription: string | null;
   extractedResume?: ResumeData;
-  extractedJD?: JobRequirements;
-  gapAnalysis?: GapAnalysis;
+  extractedJD?: JobRequirements | null;
+  gapAnalysis?: GapAnalysis | null;
 }
 
 interface ResumeData {
@@ -110,7 +110,7 @@ Identify gaps and return a JSON object:
 
 Return ONLY valid JSON, no markdown.`,
 
-  finalAnalysis: `You are an expert ATS analyst and career coach providing personalized resume feedback.
+  finalAnalysisWithJD: `You are an expert ATS analyst and career coach providing personalized resume feedback.
 
 ## EXTRACTED CANDIDATE DATA:
 {extractedResume}
@@ -143,6 +143,7 @@ Generate a comprehensive, HIGHLY PERSONALIZED analysis. Every suggestion must:
   "atsScore": <number>,
   "jdMatchScore": <number>,
   "structureScore": <number>,
+  "hasJobDescription": true,
   "candidateContext": {
     "name": "<name>",
     "currentRole": "<role>",
@@ -158,6 +159,63 @@ Generate a comprehensive, HIGHLY PERSONALIZED analysis. Every suggestion must:
     "additions": ["<SPECIFIC: Add '[exact keyword from JD]' to skills - JD states: '[quote JD]'>"],
     "removals": ["<SPECIFIC: Remove/shorten '[quote from resume]' - not relevant to this role>"],
     "improvements": ["<SPECIFIC: Change '[exact quote from resume]' to '[improved version]' to highlight [JD requirement]>"]
+  },
+  "structureAnalysis": {
+    "sections": [
+      {"name": "Contact Information", "status": "good|needs-improvement|missing", "feedback": "<specific>"},
+      {"name": "Professional Summary", "status": "good|needs-improvement|missing", "feedback": "<specific>"},
+      {"name": "Work Experience", "status": "good|needs-improvement|missing", "feedback": "<specific>"},
+      {"name": "Skills", "status": "good|needs-improvement|missing", "feedback": "<specific>"},
+      {"name": "Education", "status": "good|needs-improvement|missing", "feedback": "<specific>"},
+      {"name": "Certifications", "status": "good|needs-improvement|missing", "feedback": "<specific>"}
+    ],
+    "formatting": ["<specific formatting recommendation>"]
+  },
+  "priorityActions": [
+    {"priority": 1, "action": "<most impactful change>", "impact": "high|medium|low"},
+    {"priority": 2, "action": "<second most impactful>", "impact": "high|medium|low"},
+    {"priority": 3, "action": "<third most impactful>", "impact": "high|medium|low"}
+  ]
+}`,
+
+  finalAnalysisResumeOnly: `You are an expert ATS analyst providing personalized resume feedback.
+
+## EXTRACTED CANDIDATE DATA:
+{extractedResume}
+
+## ORIGINAL RESUME TEXT (for specific quotes):
+{resumeText}
+
+## YOUR TASK:
+Generate a comprehensive ATS and structure analysis (NO job description provided). Focus on:
+1. ATS compatibility and keyword optimization
+2. Resume structure and formatting
+3. General improvements for better readability and impact
+
+## SCORING CRITERIA:
+- ATS Score (0-100): Keyword optimization, formatting, standard sections, parsability
+- Structure Score (0-100): Organization, formatting, readability, completeness
+
+## OUTPUT FORMAT (JSON only, no markdown):
+{
+  "atsScore": <number>,
+  "structureScore": <number>,
+  "hasJobDescription": false,
+  "candidateContext": {
+    "name": "<name>",
+    "currentRole": "<role>",
+    "yearsExperience": "<years>",
+    "topSkills": ["<skill1>", "<skill2>", "<skill3>"]
+  },
+  "keyFindings": {
+    "strongMatches": ["<strong points in the resume>"],
+    "criticalGaps": ["<areas needing improvement>"],
+    "quickWins": ["<easy fix - be specific>"]
+  },
+  "suggestions": {
+    "additions": ["<SPECIFIC: Add '[keyword/section]' to improve ATS compatibility>"],
+    "removals": ["<SPECIFIC: Remove/shorten '[quote from resume]' - too verbose or irrelevant>"],
+    "improvements": ["<SPECIFIC: Change '[exact quote from resume]' to '[improved version]'>"]
   },
   "structureAnalysis": {
     "sections": [
@@ -335,12 +393,22 @@ const finalAnalysisChain = async (
   context: ChainContext
 ): Promise<unknown> => {
   console.log("[Chain 4] Generating final personalized analysis...");
-  const prompt = PromptTemplates.finalAnalysis
-    .replace("{extractedResume}", JSON.stringify(context.extractedResume, null, 2))
-    .replace("{extractedJD}", JSON.stringify(context.extractedJD, null, 2))
-    .replace("{gapAnalysis}", JSON.stringify(context.gapAnalysis, null, 2))
-    .replace("{resumeText}", context.resumeText)
-    .replace("{jobDescription}", context.jobDescription);
+  
+  let prompt: string;
+  if (context.jobDescription && context.extractedJD && context.gapAnalysis) {
+    // Full analysis with JD
+    prompt = PromptTemplates.finalAnalysisWithJD
+      .replace("{extractedResume}", JSON.stringify(context.extractedResume, null, 2))
+      .replace("{extractedJD}", JSON.stringify(context.extractedJD, null, 2))
+      .replace("{gapAnalysis}", JSON.stringify(context.gapAnalysis, null, 2))
+      .replace("{resumeText}", context.resumeText)
+      .replace("{jobDescription}", context.jobDescription);
+  } else {
+    // Resume-only analysis
+    prompt = PromptTemplates.finalAnalysisResumeOnly
+      .replace("{extractedResume}", JSON.stringify(context.extractedResume, null, 2))
+      .replace("{resumeText}", context.resumeText);
+  }
   
   const response = await callLLM(
     apiKey,
@@ -358,28 +426,38 @@ const finalAnalysisChain = async (
 const runAnalysisPipeline = async (
   apiKey: string,
   resumeText: string,
-  jobDescription: string
+  jobDescription: string | null
 ): Promise<unknown> => {
   console.log("=== Starting LangChain-style Analysis Pipeline ===");
+  console.log("Has Job Description:", !!jobDescription);
   
   const context: ChainContext = { resumeText, jobDescription };
 
-  // Run extraction chains in parallel for efficiency
-  console.log("[Pipeline] Running parallel extraction chains...");
-  const [extractedResume, extractedJD] = await Promise.all([
-    extractResumeChain(apiKey, resumeText),
-    extractJDChain(apiKey, jobDescription),
-  ]);
+  if (jobDescription) {
+    // Run extraction chains in parallel for efficiency (with JD)
+    console.log("[Pipeline] Running parallel extraction chains with JD...");
+    const [extractedResume, extractedJD] = await Promise.all([
+      extractResumeChain(apiKey, resumeText),
+      extractJDChain(apiKey, jobDescription),
+    ]);
 
-  context.extractedResume = extractedResume;
-  context.extractedJD = extractedJD;
+    context.extractedResume = extractedResume;
+    context.extractedJD = extractedJD;
 
-  console.log("[Pipeline] Resume extracted:", extractedResume.candidateName);
-  console.log("[Pipeline] JD extracted:", extractedJD.title);
+    console.log("[Pipeline] Resume extracted:", extractedResume.candidateName);
+    console.log("[Pipeline] JD extracted:", extractedJD.title);
 
-  // Run gap analysis (depends on extraction results)
-  context.gapAnalysis = await gapAnalysisChain(apiKey, extractedResume, extractedJD);
-  console.log("[Pipeline] Gaps identified:", context.gapAnalysis.missingSkills.length, "missing skills");
+    // Run gap analysis (depends on extraction results)
+    context.gapAnalysis = await gapAnalysisChain(apiKey, extractedResume, extractedJD);
+    console.log("[Pipeline] Gaps identified:", context.gapAnalysis.missingSkills.length, "missing skills");
+  } else {
+    // Resume-only extraction
+    console.log("[Pipeline] Running resume-only extraction...");
+    context.extractedResume = await extractResumeChain(apiKey, resumeText);
+    context.extractedJD = null;
+    context.gapAnalysis = null;
+    console.log("[Pipeline] Resume extracted:", context.extractedResume.candidateName);
+  }
 
   // Run final analysis (uses all context)
   const finalResult = await finalAnalysisChain(apiKey, context);
@@ -400,9 +478,9 @@ serve(async (req) => {
   try {
     const { resumeText, jobDescription }: AnalysisRequest = await req.json();
 
-    if (!resumeText || !jobDescription) {
+    if (!resumeText) {
       return new Response(
-        JSON.stringify({ error: "Resume text and job description are required" }),
+        JSON.stringify({ error: "Resume text is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -418,9 +496,10 @@ serve(async (req) => {
 
     console.log("Received analysis request");
     console.log("Resume length:", resumeText.length, "chars");
-    console.log("JD length:", jobDescription.length, "chars");
+    console.log("JD provided:", !!jobDescription);
+    if (jobDescription) console.log("JD length:", jobDescription.length, "chars");
 
-    const result = await runAnalysisPipeline(LOVABLE_API_KEY, resumeText, jobDescription);
+    const result = await runAnalysisPipeline(LOVABLE_API_KEY, resumeText, jobDescription || null);
 
     return new Response(
       JSON.stringify(result),

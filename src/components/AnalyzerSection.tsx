@@ -11,8 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
 export interface AnalysisResult {
   atsScore: number;
-  jdMatchScore: number;
+  jdMatchScore?: number; // Optional - only present when JD is provided
   structureScore: number;
+  hasJobDescription: boolean; // Flag to indicate if JD was provided
   suggestions: {
     additions: string[];
     removals: string[];
@@ -78,14 +79,7 @@ const AnalyzerSection = () => {
       return;
     }
 
-    if (!jobDescription.trim()) {
-      toast({
-        title: "Missing Job Description",
-        description: "Please paste the job description for matching analysis.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Job description is now optional
 
     setIsAnalyzing(true);
 
@@ -112,7 +106,7 @@ const AnalyzerSection = () => {
       const { data, error } = await supabase.functions.invoke('analyze-resume', {
         body: {
           resumeText: finalResumeText,
-          jobDescription: jobDescription.trim(),
+          jobDescription: jobDescription.trim() || null, // Pass null if empty
         },
       });
 
@@ -167,7 +161,7 @@ const AnalyzerSection = () => {
             Resume Analyzer
           </h2>
           <p className="text-muted-foreground text-lg">
-            Upload your resume and paste the job description to get instant ATS score and improvement suggestions.
+            Upload your resume to get instant ATS score. Add a job description for JD match analysis.
           </p>
         </div>
 
@@ -198,12 +192,15 @@ const AnalyzerSection = () => {
 
                 <div>
                   <TextInput
-                    label="Job Description"
-                    placeholder="Paste the job description here for matching analysis..."
+                    label="Job Description (Optional)"
+                    placeholder="Paste the job description here for JD match analysis..."
                     value={jobDescription}
                     onChange={setJobDescription}
                     rows={16}
                   />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Add a job description to get JD match score and tailored suggestions.
+                  </p>
                 </div>
               </div>
 
@@ -232,7 +229,7 @@ const AnalyzerSection = () => {
               
               {/* Feature hints */}
               <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs text-muted-foreground">
-                {["ATS Score", "JD Match", "Suggestions", "Structure Analysis"].map((feature) => (
+                {["ATS Score", "Structure Analysis", "Suggestions", jobDescription.trim() ? "JD Match" : ""].filter(Boolean).map((feature) => (
                   <span key={feature} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
                     {feature}

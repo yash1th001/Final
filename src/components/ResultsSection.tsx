@@ -18,7 +18,10 @@ interface ResultsSectionProps {
 
 const ResultsSection = ({ results, resumeText, jobDescription, onReset }: ResultsSectionProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const overallScore = Math.round((results.atsScore + results.jdMatchScore + results.structureScore) / 3);
+  const hasJD = results.hasJobDescription && results.jdMatchScore !== undefined;
+  const overallScore = hasJD 
+    ? Math.round((results.atsScore + (results.jdMatchScore || 0) + results.structureScore) / 3)
+    : Math.round((results.atsScore + results.structureScore) / 2);
 
   const handleDownloadReport = async () => {
     try {
@@ -169,7 +172,7 @@ const ResultsSection = ({ results, resumeText, jobDescription, onReset }: Result
       </div>
 
       {/* Interactive Score Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className={`grid gap-6 ${hasJD ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <ScoreCard
           score={results.atsScore}
           label="ATS Score"
@@ -177,19 +180,21 @@ const ResultsSection = ({ results, resumeText, jobDescription, onReset }: Result
           tips={getATSTips(results.atsScore)}
           delay="0s"
         />
-        <ScoreCard
-          score={results.jdMatchScore}
-          label="JD Match"
-          description="Keyword and skill alignment with job description"
-          tips={getJDMatchTips(results.jdMatchScore)}
-          delay="0.1s"
-        />
+        {hasJD && (
+          <ScoreCard
+            score={results.jdMatchScore!}
+            label="JD Match"
+            description="Keyword and skill alignment with job description"
+            tips={getJDMatchTips(results.jdMatchScore!)}
+            delay="0.1s"
+          />
+        )}
         <ScoreCard
           score={results.structureScore}
           label="Structure"
           description="Resume format and section organization"
           tips={getStructureTips(results.structureScore)}
-          delay="0.2s"
+          delay={hasJD ? "0.2s" : "0.1s"}
         />
       </div>
 
