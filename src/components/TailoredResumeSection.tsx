@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileEdit, Loader2, Copy, Check, Download, FileText } from "lucide-react";
+import { FileEdit, Loader2, Copy, Check, Download, FileText, Trophy, Target, LayoutGrid } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "@/hooks/use-toast";
@@ -13,17 +13,26 @@ interface TailoredResumeSectionProps {
   results: AnalysisResult;
 }
 
+interface ResumeScores {
+  atsScore: number;
+  jdMatchScore?: number;
+  structureScore: number;
+  feedback?: string;
+}
+
 const TailoredResumeSection = ({ resumeText, jobDescription, results }: TailoredResumeSectionProps) => {
   const [tailoredResume, setTailoredResume] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [scores, setScores] = useState<ResumeScores | null>(null);
 
   const handleGenerateTailoredResume = async () => {
     setIsGenerating(true);
+    setScores(null);
     try {
       toast({
         title: "Tailoring Your Resume",
-        description: "Applying suggestions while preserving your original structure...",
+        description: "Applying suggestions and validating the result...",
       });
 
       const allSuggestions = [
@@ -34,7 +43,7 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
       const { data, error } = await supabase.functions.invoke('generate-improved-resume', {
         body: {
           resumeText,
-          jobDescription,
+          jobDescription: jobDescription.trim() || null,
           suggestions: allSuggestions,
           structureAnalysis: results.structureAnalysis,
           preserveStructure: true,
@@ -50,9 +59,17 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
       }
 
       setTailoredResume(data.improvedResume);
+      
+      // Set scores if available
+      if (data.scores) {
+        setScores(data.scores);
+      }
+      
       toast({
         title: "Resume Tailored!",
-        description: "Your resume has been updated with all suggestions applied.",
+        description: data.scores 
+          ? `Your resume scored ${data.scores.atsScore}% ATS compatibility.`
+          : "Your resume has been updated with all suggestions applied.",
       });
     } catch (error) {
       console.error("Failed to generate tailored resume:", error);
@@ -185,6 +202,46 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
 
         {tailoredResume && (
           <div className="space-y-4">
+            {/* Score Display */}
+            {scores && (
+              <div className="bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10 rounded-xl p-4 border border-primary/20">
+                <div className="flex flex-wrap items-center justify-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">ATS Score</p>
+                      <p className="text-lg font-bold text-foreground">{scores.atsScore}%</p>
+                    </div>
+                  </div>
+                  {scores.jdMatchScore !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                        <Target className="w-5 h-5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">JD Match</p>
+                        <p className="text-lg font-bold text-foreground">{scores.jdMatchScore}%</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <LayoutGrid className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Structure</p>
+                      <p className="text-lg font-bold text-foreground">{scores.structureScore}%</p>
+                    </div>
+                  </div>
+                </div>
+                {scores.feedback && (
+                  <p className="text-xs text-muted-foreground text-center mt-3">{scores.feedback}</p>
+                )}
+              </div>
+            )}
+            
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
