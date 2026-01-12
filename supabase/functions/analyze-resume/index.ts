@@ -156,9 +156,9 @@ Generate a comprehensive, HIGHLY PERSONALIZED analysis. Every suggestion must:
     "quickWins": ["<easy fix - be specific>"]
   },
   "suggestions": {
-    "additions": ["<SPECIFIC: Add '[exact keyword from JD]' to skills - JD states: '[quote JD]'>"],
-    "removals": ["<SPECIFIC: Remove/shorten '[quote from resume]' - not relevant to this role>"],
-    "improvements": ["<SPECIFIC: Change '[exact quote from resume]' to '[improved version]' to highlight [JD requirement]>"]
+    "additions": ["Add '[exact keyword from JD]' to skills section - JD requires this skill"],
+    "removals": ["Remove '[quote from resume]' - not relevant to this role"],
+    "improvements": ["Change '[exact quote from resume]' to '[improved version]' for better impact"]
   },
   "structureAnalysis": {
     "sections": [
@@ -213,9 +213,9 @@ Generate a comprehensive ATS and structure analysis (NO job description provided
     "quickWins": ["<easy fix - be specific>"]
   },
   "suggestions": {
-    "additions": ["<SPECIFIC: Add '[keyword/section]' to improve ATS compatibility>"],
-    "removals": ["<SPECIFIC: Remove/shorten '[quote from resume]' - too verbose or irrelevant>"],
-    "improvements": ["<SPECIFIC: Change '[exact quote from resume]' to '[improved version]'>"]
+    "additions": ["Add '[keyword/section]' to improve ATS compatibility"],
+    "removals": ["Remove '[quote from resume]' - too verbose or irrelevant"],
+    "improvements": ["Change '[exact quote from resume]' to '[improved version]' for better readability"]
   },
   "structureAnalysis": {
     "sections": [
