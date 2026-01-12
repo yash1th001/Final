@@ -60,51 +60,74 @@ ${jobDescription ? '5. Is tailored specifically for the target job description' 
 6. Maintains a clean, professional structure
 `}
 
-## REQUIRED OUTPUT STRUCTURE (LaTeX ATS Resume Format):
-The resume MUST follow this exact structure for maximum ATS compatibility:
+## REQUIRED OUTPUT STRUCTURE (Professional ATS Resume Format):
+The resume MUST follow this EXACT structure for maximum ATS compatibility. Include ALL sections with proper headings:
 
-1. **HEADER** (centered):
-   - Full Name (large, bold)
-   - Contact info on one line: Phone | Email | LinkedIn | GitHub
+================================================================================
+[CANDIDATE NAME]
+[Phone] | [Email] | [LinkedIn URL] | [GitHub URL]
+================================================================================
 
-2. **OBJECTIVE/SUMMARY** (if present in original):
-   - Brief 2-3 sentence professional summary
+OBJECTIVE
+---------
+[2-3 sentence professional summary/objective statement]
 
-3. **EDUCATION**:
-   Format each entry as:
-   Institution Name | Location
-   Degree - GPA/Percentage | Dates
+EDUCATION
+---------
+[Institution Name]                                                    [Location]
+[Degree Name] - [GPA/Percentage]                                      [Dates]
 
-4. **EXPERIENCE** (if present):
-   Format each entry as:
-   Company/Position | Location
-   Role Title | Dates
-   • Bullet point achievements with metrics
+[Previous Institution]                                                [Location]
+[Degree/Certificate] - [Score]                                        [Dates]
 
-5. **PROJECTS**:
-   Format each entry as:
-   Project Name | Technologies Used | Date
-   • Bullet point descriptions
-   • GitHub Link (if available)
+PROJECTS
+--------
+[Project Title] | [Technologies: Tech1, Tech2, Tech3]                 [Date]
+• [Description of what you built and key features]
+• [Quantified impact or technical achievement]
+• GitHub: [link]
 
-6. **SKILLS**:
-   Format as:
-   Languages: Python, Java, etc.
-   Machine Learning: skill1, skill2, etc.
-   Frameworks: framework1, framework2, etc.
-   Tools: tool1, tool2, etc.
+[Project Title] | [Technologies: Tech1, Tech2, Tech3]                 [Date]
+• [Description of what you built and key features]
+• [Quantified impact or technical achievement]
+• GitHub: [link]
 
-7. **CERTIFICATIONS** (if present):
-   • Certification Name -- Issuing Organization
+EXPERIENCE (if present)
+-----------------------
+[Company Name]                                                        [Location]
+[Job Title]                                                           [Dates]
+• [Achievement with metrics]
+• [Responsibility with impact]
 
-8. **ACHIEVEMENTS** (if present):
-   • Achievement description
+SKILLS
+------
+Languages: [Language1], [Language2], [Language3]
+Machine Learning: [Skill1], [Skill2], [Skill3]
+Frameworks: [Framework1], [Framework2]
+Developer Tools: [Tool1], [Tool2]
+Soft Skills: [Skill1], [Skill2]
+
+CERTIFICATIONS
+--------------
+• [Certification Name] -- [Issuing Organization]
+• [Certification Name] -- [Issuing Organization]
+
+ACHIEVEMENTS
+------------
+• [Achievement description with context and impact]
+
+## CRITICAL REQUIREMENTS:
+1. ALWAYS include section headers in UPPERCASE followed by a line of dashes
+2. Project entries MUST have: Title | Technologies | Date format
+3. Each project MUST list technologies used after the pipe symbol
+4. Use bullet points (•) for all list items
+5. Right-align dates and locations
+6. Include GitHub links for projects if available
+7. Keep consistent spacing and alignment throughout
 
 ## OUTPUT FORMAT:
-Return ONLY the improved resume content in clean text format following the structure above.
-Use | as separators between items on the same line.
-Use • for bullet points.
-Do NOT include any explanations, comments, or markdown formatting.
+Return ONLY the improved resume content in clean text format.
+Do NOT include any explanations, markdown formatting (no **, no ##), or code blocks.
 `,
 
   scoreResume: (resumeText: string, jobDescription: string | null) => `

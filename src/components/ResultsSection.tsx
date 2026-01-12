@@ -212,16 +212,19 @@ const ResultsSection = ({ results, resumeText, jobDescription, onReset }: Result
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {results.suggestions.additions.map((item, index) => (
-                <li
-                  key={index}
-                  className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
-                  style={{ animationDelay: `${0.2 + index * 0.05}s` }}
-                >
-                  <span className="text-accent mt-0.5 font-bold">+</span>
-                  <span>{item}</span>
-                </li>
-              ))}
+              {results.suggestions.additions.map((item, index) => {
+                const displayText = typeof item === 'string' ? item : (item as { change?: string; improved?: string }).change || JSON.stringify(item);
+                return (
+                  <li
+                    key={index}
+                    className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
+                    style={{ animationDelay: `${0.2 + index * 0.05}s` }}
+                  >
+                    <span className="text-accent mt-0.5 font-bold">+</span>
+                    <span>{displayText}</span>
+                  </li>
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
@@ -238,16 +241,19 @@ const ResultsSection = ({ results, resumeText, jobDescription, onReset }: Result
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {results.suggestions.removals.map((item, index) => (
-                <li
-                  key={index}
-                  className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
-                  style={{ animationDelay: `${0.3 + index * 0.05}s` }}
-                >
-                  <span className="text-destructive mt-0.5 font-bold">−</span>
-                  <span>{item}</span>
-                </li>
-              ))}
+              {results.suggestions.removals.map((item, index) => {
+                const displayText = typeof item === 'string' ? item : (item as { change?: string; improved?: string }).change || JSON.stringify(item);
+                return (
+                  <li
+                    key={index}
+                    className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
+                    style={{ animationDelay: `${0.3 + index * 0.05}s` }}
+                  >
+                    <span className="text-destructive mt-0.5 font-bold">−</span>
+                    <span>{displayText}</span>
+                  </li>
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
@@ -264,16 +270,22 @@ const ResultsSection = ({ results, resumeText, jobDescription, onReset }: Result
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {results.suggestions.improvements.map((item, index) => (
-                <li
-                  key={index}
-                  className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
-                  style={{ animationDelay: `${0.4 + index * 0.05}s` }}
-                >
-                  <span className="text-primary mt-0.5">→</span>
-                  <span>{item}</span>
-                </li>
-              ))}
+              {results.suggestions.improvements.map((item, index) => {
+                const displayText = typeof item === 'string' ? item : 
+                  (item as { change?: string; improved?: string }).improved || 
+                  (item as { change?: string; improved?: string }).change || 
+                  JSON.stringify(item);
+                return (
+                  <li
+                    key={index}
+                    className="flex gap-3 text-sm text-foreground p-2 rounded-lg hover:bg-muted/50 transition-colors animate-slide-left"
+                    style={{ animationDelay: `${0.4 + index * 0.05}s` }}
+                  >
+                    <span className="text-primary mt-0.5">→</span>
+                    <span>{displayText}</span>
+                  </li>
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
