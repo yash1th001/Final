@@ -24,12 +24,12 @@ interface GenerateRequest {
 // Prompt template for resume improvement
 const PromptTemplates = {
   improveResume: (resumeText: string, jobDescription: string | null, suggestions: string[], formatting: string[], preserveStructure: boolean) => `
-You are an expert resume writer and career coach. Your task is to improve the provided resume based on the suggestions.
+You are an expert resume writer specializing in ATS-optimized, LaTeX-style professional resumes. Your task is to create a perfectly structured resume.
 
 ## ORIGINAL RESUME:
 ${resumeText}
 
-${jobDescription ? `## TARGET JOB DESCRIPTION:\n${jobDescription}` : '## NOTE: No specific job description provided. Focus on general ATS optimization and professional improvements.'}
+${jobDescription ? `## TARGET JOB DESCRIPTION:\n${jobDescription}` : '## NOTE: No specific job description provided. Focus on general ATS optimization.'}
 
 ## SUGGESTIONS TO APPLY:
 ${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
@@ -37,97 +37,95 @@ ${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 ${formatting.length > 0 ? `## FORMATTING RECOMMENDATIONS:\n${formatting.map((f, i) => `${i + 1}. ${f}`).join('\n')}` : ''}
 
 ## YOUR TASK:
-${preserveStructure ? `
-IMPORTANT: You MUST preserve the EXACT structure, section order, and general alignment of the original resume.
-- Keep the same sections in the same order
-- Maintain the same formatting style (bullet points, spacing, etc.)
-- Only modify the content within each section to apply the suggestions
-- Do not add new sections or remove existing sections unless explicitly suggested
-- Preserve the visual layout as much as possible
+Create a professionally formatted resume that:
+1. Applies all the recommended improvements and additions
+2. Uses strong action verbs and quantifiable achievements
+3. Is optimized for ATS parsing
+${jobDescription ? '4. Is tailored for the target job description' : '4. Maintains strong general appeal'}
+5. Has clean, consistent formatting throughout
 
-Rewrite the resume by:
-1. Applying the keyword and skill additions within existing sections
-2. Improving bullet points with stronger action verbs and metrics
-3. Optimizing content for ATS without changing the structure
-4. Keeping the candidate's authentic voice and experience
-` : `
-Rewrite the resume incorporating ALL the suggestions above. Create a professional, ATS-optimized resume that:
-1. Applies all the recommended additions (add relevant keywords, skills, achievements)
-2. Implements all the improvement suggestions
-3. Follows the formatting recommendations
-4. Uses strong action verbs and quantifiable achievements
-${jobDescription ? '5. Is tailored specifically for the target job description' : '5. Is optimized for general ATS compatibility'}
-6. Maintains a clean, professional structure
-`}
+## REQUIRED OUTPUT FORMAT (ATS-Optimized LaTeX-Style Resume):
 
-## REQUIRED OUTPUT STRUCTURE (Professional ATS Resume Format):
-The resume MUST follow this EXACT structure for maximum ATS compatibility. Include ALL sections with proper headings:
+IMPORTANT FORMATTING RULES:
+- Use EXACT format shown below - this ensures proper PDF generation
+- All links must be on their own line in format: Link: https://example.com
+- Section headers MUST be in UPPERCASE
+- Use bullet points (•) for all list items
+- Keep consistent spacing and alignment
+- Right-align dates using spaces (don't use pipe for date alignment)
 
-================================================================================
-[CANDIDATE NAME]
-[Phone] | [Email] | [LinkedIn URL] | [GitHub URL]
-================================================================================
+===============================================================================
+FULL NAME
+Phone: +1-234-567-8901 | Email: name@email.com
+LinkedIn: https://linkedin.com/in/username | GitHub: https://github.com/username
+===============================================================================
 
 OBJECTIVE
 ---------
-[2-3 sentence professional summary/objective statement]
+[2-3 sentence professional summary that highlights key skills and career goals. Should be specific and tailored to the role.]
 
 EDUCATION
 ---------
-[Institution Name]                                                    [Location]
-[Degree Name] - [GPA/Percentage]                                      [Dates]
+University/Institution Name                                    City, State/Country
+Degree Name (Major) - GPA: X.XX/4.0                           Month Year - Month Year
+• Relevant coursework: Course 1, Course 2, Course 3
+• Academic achievements or honors if any
 
-[Previous Institution]                                                [Location]
-[Degree/Certificate] - [Score]                                        [Dates]
+EXPERIENCE
+----------
+Company Name                                                   City, State/Country
+Job Title                                                      Month Year - Present
+• [Action verb] + [Task/Responsibility] + [Result/Impact with metrics]
+• Achieved [X% improvement/growth] in [area] by implementing [solution]
+• Led/Managed/Developed [project/team] resulting in [quantifiable outcome]
 
 PROJECTS
 --------
-[Project Title] | [Technologies: Tech1, Tech2, Tech3]                 [Date]
-• [Description of what you built and key features]
-• [Quantified impact or technical achievement]
-• GitHub: [link]
+Project Name                                                   Month Year
+Technologies: Python, TensorFlow, React, PostgreSQL
+• [What you built and its purpose]
+• [Key technical feature or challenge solved]
+• [Impact or result - users, performance, metrics]
+• Link: https://github.com/username/project-name
 
-[Project Title] | [Technologies: Tech1, Tech2, Tech3]                 [Date]
-• [Description of what you built and key features]
-• [Quantified impact or technical achievement]
-• GitHub: [link]
-
-EXPERIENCE (if present)
------------------------
-[Company Name]                                                        [Location]
-[Job Title]                                                           [Dates]
-• [Achievement with metrics]
-• [Responsibility with impact]
+Another Project                                                Month Year
+Technologies: Node.js, MongoDB, Docker, AWS
+• [Description of the project]
+• [Technical implementation details]
+• Link: https://live-demo-url.com
 
 SKILLS
 ------
-Languages: [Language1], [Language2], [Language3]
-Machine Learning: [Skill1], [Skill2], [Skill3]
-Frameworks: [Framework1], [Framework2]
-Developer Tools: [Tool1], [Tool2]
-Soft Skills: [Skill1], [Skill2]
+Programming Languages: Python, JavaScript, TypeScript, Java, C++
+Frameworks & Libraries: React, Node.js, TensorFlow, PyTorch, Express.js
+Databases: PostgreSQL, MongoDB, Redis, MySQL
+Cloud & DevOps: AWS, Docker, Kubernetes, CI/CD, Git
+Soft Skills: Leadership, Communication, Problem-solving, Team Collaboration
 
 CERTIFICATIONS
 --------------
-• [Certification Name] -- [Issuing Organization]
-• [Certification Name] -- [Issuing Organization]
+• Certification Name - Issuing Organization (Month Year)
+• Another Certification - Organization (Month Year)
 
 ACHIEVEMENTS
 ------------
-• [Achievement description with context and impact]
+• [Specific achievement with context and measurable impact]
+• [Award or recognition with details]
 
 ## CRITICAL REQUIREMENTS:
-1. ALWAYS include section headers in UPPERCASE followed by a line of dashes
-2. Project entries MUST have: Title | Technologies | Date format
-3. Each project MUST list technologies used after the pipe symbol
-4. Use bullet points (•) for all list items
-5. Right-align dates and locations
-6. Include GitHub links for projects if available
-7. Keep consistent spacing and alignment throughout
+1. ALL URLs must be on their own line with format "Link: https://..."
+2. LinkedIn and GitHub URLs must be on the header line
+3. Phone should use format: Phone: +X-XXX-XXX-XXXX
+4. Email should use format: Email: name@domain.com
+5. Technologies for projects must be on their own line: "Technologies: tech1, tech2, tech3"
+6. Section headers in UPPERCASE followed by a line of dashes (---------)
+7. Use bullet points (•) for all list items
+8. Dates should be right-aligned (use natural language spacing)
+9. Keep to single page if possible by being concise
 
-## OUTPUT FORMAT:
-Return ONLY the improved resume content in clean text format.
-Do NOT include any explanations, markdown formatting (no **, no ##), or code blocks.
+## OUTPUT:
+Return ONLY the resume text in the exact format shown above.
+Do NOT include explanations, markdown (no ** or ##), or code blocks.
 `,
 
   scoreResume: (resumeText: string, jobDescription: string | null) => `
@@ -200,7 +198,7 @@ serve(async (req) => {
             body: JSON.stringify({
               model,
               messages: [{ role: "user", content: promptText }],
-              temperature: 0.4,
+              temperature: 0.3,
               max_tokens: 4000,
             }),
           });
@@ -247,6 +245,13 @@ serve(async (req) => {
       improvedResume = await callLLM(improvePrompt, "google/gemini-2.5-flash-lite");
     }
 
+    // Clean up the resume text
+    improvedResume = improvedResume
+      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+      .replace(/\*\*/g, '') // Remove bold markdown
+      .replace(/^#+\s*/gm, '') // Remove markdown headers
+      .trim();
+
     console.log("[generate-improved-resume] Successfully generated improved resume");
     console.log("[generate-improved-resume] Output length:", improvedResume.length, "characters");
 
@@ -261,6 +266,11 @@ serve(async (req) => {
       const jsonMatch = scoreResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         jsonContent = jsonMatch[1].trim();
+      }
+      // Also try to extract JSON directly if no code block
+      const directJsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+      if (directJsonMatch) {
+        jsonContent = directJsonMatch[0];
       }
       scores = JSON.parse(jsonContent);
       console.log("[generate-improved-resume] Resume scores:", scores);

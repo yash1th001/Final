@@ -106,20 +106,40 @@ const TailoredResumeSection = ({ resumeText, jobDescription, results }: Tailored
   const handleDownloadTxt = () => {
     if (!tailoredResume) return;
     
-    const blob = new Blob([tailoredResume], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tailored-resume.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Downloaded!",
-      description: "Your tailored resume has been saved as text.",
-    });
+    try {
+      // Clean up the resume text for download
+      const cleanedResume = tailoredResume
+        .replace(/^[=\-]{3,}$/gm, '') // Remove separator lines
+        .replace(/\n{3,}/g, '\n\n') // Reduce excessive newlines
+        .trim();
+      
+      const blob = new Blob([cleanedResume], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tailored-resume.txt';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast({
+        title: "Downloaded!",
+        description: "Your tailored resume has been saved as text.",
+      });
+    } catch (error) {
+      console.error("Text download failed:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not download the resume. Please try copying instead.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadPdf = async () => {
