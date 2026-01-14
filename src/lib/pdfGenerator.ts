@@ -21,6 +21,16 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
     if (score >= 40) return [245, 158, 11]; // Amber
     return destructiveColor;
   };
+
+  // Helper to safely convert suggestion items to strings
+  const toDisplayString = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object') {
+      const obj = item as Record<string, unknown>;
+      return (obj.change || obj.improved || obj.suggestion || JSON.stringify(item)) as string;
+    }
+    return String(item);
+  };
   
   // Header
   doc.setFillColor(...primaryColor);
@@ -41,8 +51,11 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
   
   yPosition = 60;
   
-  // Overall Score Section
-  const overallScore = Math.round((results.atsScore + results.jdMatchScore + results.structureScore) / 3);
+  // Calculate overall score based on whether JD is provided
+  const hasJD = results.hasJobDescription && results.jdMatchScore !== undefined;
+  const overallScore = hasJD
+    ? Math.round((results.atsScore + (results.jdMatchScore || 0) + results.structureScore) / 3)
+    : Math.round((results.atsScore + results.structureScore) / 2);
   
   doc.setTextColor(...textColor);
   doc.setFontSize(14);
@@ -77,7 +90,7 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
   
   const scores = [
     { label: 'ATS Compatibility', score: results.atsScore },
-    { label: 'Job Description Match', score: results.jdMatchScore },
+    ...(hasJD ? [{ label: 'Job Description Match', score: results.jdMatchScore || 0 }] : []),
     { label: 'Resume Structure', score: results.structureScore },
   ];
   
@@ -114,7 +127,9 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
   yPosition += 15;
   
   // Suggestions Section
-  const addSection = (title: string, items: string[], color: [number, number, number], symbol: string) => {
+  const addSection = (title: string, items: unknown[], color: [number, number, number], symbol: string) => {
+    if (!items || items.length === 0) return;
+    
     if (yPosition > 250) {
       doc.addPage();
       yPosition = 20;
@@ -137,7 +152,8 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
         yPosition = 20;
       }
       
-      const lines = doc.splitTextToSize(`${symbol} ${item}`, contentWidth - 5);
+      const displayText = toDisplayString(item);
+      const lines = doc.splitTextToSize(`${symbol} ${displayText}`, contentWidth - 5);
       lines.forEach((line: string) => {
         doc.text(line, margin + 5, yPosition);
         yPosition += 5;
@@ -148,9 +164,9 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
     yPosition += 8;
   };
   
-  addSection('Add to Resume', results.suggestions.additions, accentColor, '+');
-  addSection('Remove from Resume', results.suggestions.removals, destructiveColor, '−');
-  addSection('Improvements', results.suggestions.improvements, primaryColor, '→');
+  addSection('Add to Resume', results.suggestions.additions || [], accentColor, '+');
+  addSection('Remove from Resume', results.suggestions.removals || [], destructiveColor, '−');
+  addSection('Improvements', results.suggestions.improvements || [], primaryColor, '→');
   
   // Structure Analysis
   if (yPosition > 220) {

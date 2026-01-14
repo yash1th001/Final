@@ -133,16 +133,44 @@ Generate a comprehensive, HIGHLY PERSONALIZED analysis. Every suggestion must:
 2. Reference SPECIFIC requirements from the job description
 3. Be immediately actionable
 
-## SCORING CRITERIA:
-- ATS Score (0-100): Keyword optimization, formatting, standard sections, parsability
-- JD Match Score (0-100): Skills alignment, experience match, requirement coverage
-- Structure Score (0-100): Organization, formatting, readability, completeness
+## DETERMINISTIC SCORING RUBRIC (FOLLOW EXACTLY):
+
+### ATS Score (0-100) - Calculate based on these EXACT criteria:
+- Contact section with email, phone, location: +15 points
+- Professional Summary/Objective present: +10 points
+- Work Experience section with dates: +15 points
+- Education section with dates: +10 points
+- Skills section present: +10 points
+- Uses standard section headings (Experience, Education, Skills): +10 points
+- No tables, graphics, or complex formatting: +10 points
+- Action verbs starting bullet points: +10 points
+- Consistent date formatting: +5 points
+- Single column layout: +5 points
+
+### JD Match Score (0-100) - Calculate based on these EXACT criteria:
+- Required skills coverage: (matched skills / total required) * 40 points
+- Nice-to-have skills coverage: (matched / total) * 15 points
+- Experience years match: +15 points if meets requirement
+- Certification match: +10 points per matched cert (max 20)
+- Industry keywords present: (matched / total) * 10 points
+
+### Structure Score (0-100) - Calculate based on these EXACT criteria:
+- Clear section headings: +15 points
+- Consistent formatting throughout: +15 points
+- Bullet points for achievements: +15 points
+- Quantified achievements (numbers, metrics): +15 points
+- Appropriate length (1-2 pages): +10 points
+- Professional fonts and spacing: +10 points
+- Logical section order: +10 points
+- No typos/grammar issues: +10 points
+
+## IMPORTANT: Scores must be CONSISTENT. Same resume = same scores every time. Use the rubric above mathematically.
 
 ## OUTPUT FORMAT (JSON only, no markdown):
 {
-  "atsScore": <number>,
-  "jdMatchScore": <number>,
-  "structureScore": <number>,
+  "atsScore": <number 0-100 calculated from rubric>,
+  "jdMatchScore": <number 0-100 calculated from rubric>,
+  "structureScore": <number 0-100 calculated from rubric>,
   "hasJobDescription": true,
   "candidateContext": {
     "name": "<name>",
@@ -192,14 +220,36 @@ Generate a comprehensive ATS and structure analysis (NO job description provided
 2. Resume structure and formatting
 3. General improvements for better readability and impact
 
-## SCORING CRITERIA:
-- ATS Score (0-100): Keyword optimization, formatting, standard sections, parsability
-- Structure Score (0-100): Organization, formatting, readability, completeness
+## DETERMINISTIC SCORING RUBRIC (FOLLOW EXACTLY):
+
+### ATS Score (0-100) - Calculate based on these EXACT criteria:
+- Contact section with email, phone, location: +15 points
+- Professional Summary/Objective present: +10 points
+- Work Experience section with dates: +15 points
+- Education section with dates: +10 points
+- Skills section present: +10 points
+- Uses standard section headings (Experience, Education, Skills): +10 points
+- No tables, graphics, or complex formatting: +10 points
+- Action verbs starting bullet points: +10 points
+- Consistent date formatting: +5 points
+- Single column layout: +5 points
+
+### Structure Score (0-100) - Calculate based on these EXACT criteria:
+- Clear section headings: +15 points
+- Consistent formatting throughout: +15 points
+- Bullet points for achievements: +15 points
+- Quantified achievements (numbers, metrics): +15 points
+- Appropriate length (1-2 pages): +10 points
+- Professional fonts and spacing: +10 points
+- Logical section order: +10 points
+- No typos/grammar issues: +10 points
+
+## IMPORTANT: Scores must be CONSISTENT. Same resume = same scores every time. Use the rubric above mathematically.
 
 ## OUTPUT FORMAT (JSON only, no markdown):
 {
-  "atsScore": <number>,
-  "structureScore": <number>,
+  "atsScore": <number 0-100 calculated from rubric>,
+  "structureScore": <number 0-100 calculated from rubric>,
   "hasJobDescription": false,
   "candidateContext": {
     "name": "<name>",
