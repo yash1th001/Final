@@ -133,38 +133,60 @@ Generate a comprehensive, HIGHLY PERSONALIZED analysis. Every suggestion must:
 2. Reference SPECIFIC requirements from the job description
 3. Be immediately actionable
 
-## DETERMINISTIC SCORING RUBRIC (FOLLOW EXACTLY):
+## DETERMINISTIC SCORING RUBRIC (CALCULATE EXACTLY - NO VARIANCE):
 
-### ATS Score (0-100) - Calculate based on these EXACT criteria:
-- Contact section with email, phone, location: +15 points
-- Professional Summary/Objective present: +10 points
-- Work Experience section with dates: +15 points
-- Education section with dates: +10 points
-- Skills section present: +10 points
-- Uses standard section headings (Experience, Education, Skills): +10 points
-- No tables, graphics, or complex formatting: +10 points
-- Action verbs starting bullet points: +10 points
-- Consistent date formatting: +5 points
-- Single column layout: +5 points
+### ATS Score (0-100) - Add points for each present element:
+| Criteria | Points | Check |
+|----------|--------|-------|
+| Contact: email present | +5 | Yes/No |
+| Contact: phone present | +5 | Yes/No |
+| Contact: location/city present | +5 | Yes/No |
+| Professional Summary/Objective section | +10 | Yes/No |
+| Work Experience section with company names | +8 | Yes/No |
+| Work Experience with date ranges | +7 | Yes/No |
+| Education section present | +5 | Yes/No |
+| Education with dates/years | +5 | Yes/No |
+| Skills section present | +10 | Yes/No |
+| Standard headings (Experience/Education/Skills) | +10 | Yes/No |
+| Plain text (no tables/graphics/columns) | +10 | Yes/No |
+| Action verbs in bullet points | +10 | Yes/No |
+| Consistent date format (MM/YYYY or Month Year) | +5 | Yes/No |
+| Single column layout | +5 | Yes/No |
+**Total possible: 100 points**
 
-### JD Match Score (0-100) - Calculate based on these EXACT criteria:
-- Required skills coverage: (matched skills / total required) * 40 points
-- Nice-to-have skills coverage: (matched / total) * 15 points
-- Experience years match: +15 points if meets requirement
-- Certification match: +10 points per matched cert (max 20)
-- Industry keywords present: (matched / total) * 10 points
+### JD Match Score (0-100) - Calculate mathematically:
+1. Count required skills in JD: R
+2. Count matched required skills in resume: M
+3. Required Skills Score = (M / R) * 40
+4. Count nice-to-have skills in JD: N
+5. Count matched nice-to-have: MN
+6. Nice-to-have Score = (MN / N) * 15 (or 0 if N=0)
+7. Years experience meets requirement: +15 (or 0)
+8. Certifications matched: min(matched * 10, 20)
+9. Industry keywords: (matched / total) * 10
+**Total = Sum of all components, round to integer**
 
-### Structure Score (0-100) - Calculate based on these EXACT criteria:
-- Clear section headings: +15 points
-- Consistent formatting throughout: +15 points
-- Bullet points for achievements: +15 points
-- Quantified achievements (numbers, metrics): +15 points
-- Appropriate length (1-2 pages): +10 points
-- Professional fonts and spacing: +10 points
-- Logical section order: +10 points
-- No typos/grammar issues: +10 points
+### Structure Score (0-100) - Add points for each:
+| Criteria | Points | Check |
+|----------|--------|-------|
+| Clear, distinct section headings | +15 | Yes/No |
+| Consistent font/formatting | +10 | Yes/No |
+| Consistent spacing | +5 | Yes/No |
+| Uses bullet points for achievements | +15 | Yes/No |
+| Has quantified achievements (%, $, numbers) | +15 | Yes/No |
+| Length 1-2 pages | +10 | Yes/No |
+| Readable fonts (no unusual fonts) | +5 | Yes/No |
+| Adequate white space | +5 | Yes/No |
+| Logical order (Summary→Experience→Skills→Education) | +10 | Yes/No |
+| No obvious typos/grammar errors | +10 | Yes/No |
+**Total possible: 100 points**
 
-## IMPORTANT: Scores must be CONSISTENT. Same resume = same scores every time. Use the rubric above mathematically.
+## CRITICAL SCORING RULES:
+1. Calculate each score by going through EVERY criterion above
+2. Document your calculation in your reasoning before outputting
+3. The SAME resume with the SAME JD must ALWAYS produce the SAME scores
+4. Round all scores to the nearest integer
+5. Be strict but fair - partial credit is NOT allowed (criterion is either met or not)
 
 ## OUTPUT FORMAT (JSON only, no markdown):
 {
@@ -220,31 +242,48 @@ Generate a comprehensive ATS and structure analysis (NO job description provided
 2. Resume structure and formatting
 3. General improvements for better readability and impact
 
-## DETERMINISTIC SCORING RUBRIC (FOLLOW EXACTLY):
+## DETERMINISTIC SCORING RUBRIC (CALCULATE EXACTLY - NO VARIANCE):
 
-### ATS Score (0-100) - Calculate based on these EXACT criteria:
-- Contact section with email, phone, location: +15 points
-- Professional Summary/Objective present: +10 points
-- Work Experience section with dates: +15 points
-- Education section with dates: +10 points
-- Skills section present: +10 points
-- Uses standard section headings (Experience, Education, Skills): +10 points
-- No tables, graphics, or complex formatting: +10 points
-- Action verbs starting bullet points: +10 points
-- Consistent date formatting: +5 points
-- Single column layout: +5 points
+### ATS Score (0-100) - Add points for each present element:
+| Criteria | Points | Check |
+|----------|--------|-------|
+| Contact: email present | +5 | Yes/No |
+| Contact: phone present | +5 | Yes/No |
+| Contact: location/city present | +5 | Yes/No |
+| Professional Summary/Objective section | +10 | Yes/No |
+| Work Experience section with company names | +8 | Yes/No |
+| Work Experience with date ranges | +7 | Yes/No |
+| Education section present | +5 | Yes/No |
+| Education with dates/years | +5 | Yes/No |
+| Skills section present | +10 | Yes/No |
+| Standard headings (Experience/Education/Skills) | +10 | Yes/No |
+| Plain text (no tables/graphics/columns) | +10 | Yes/No |
+| Action verbs in bullet points | +10 | Yes/No |
+| Consistent date format (MM/YYYY or Month Year) | +5 | Yes/No |
+| Single column layout | +5 | Yes/No |
+**Total possible: 100 points**
 
-### Structure Score (0-100) - Calculate based on these EXACT criteria:
-- Clear section headings: +15 points
-- Consistent formatting throughout: +15 points
-- Bullet points for achievements: +15 points
-- Quantified achievements (numbers, metrics): +15 points
-- Appropriate length (1-2 pages): +10 points
-- Professional fonts and spacing: +10 points
-- Logical section order: +10 points
-- No typos/grammar issues: +10 points
+### Structure Score (0-100) - Add points for each:
+| Criteria | Points | Check |
+|----------|--------|-------|
+| Clear, distinct section headings | +15 | Yes/No |
+| Consistent font/formatting | +10 | Yes/No |
+| Consistent spacing | +5 | Yes/No |
+| Uses bullet points for achievements | +15 | Yes/No |
+| Has quantified achievements (%, $, numbers) | +15 | Yes/No |
+| Length 1-2 pages | +10 | Yes/No |
+| Readable fonts (no unusual fonts) | +5 | Yes/No |
+| Adequate white space | +5 | Yes/No |
+| Logical order (Summary→Experience→Skills→Education) | +10 | Yes/No |
+| No obvious typos/grammar errors | +10 | Yes/No |
+**Total possible: 100 points**
 
-## IMPORTANT: Scores must be CONSISTENT. Same resume = same scores every time. Use the rubric above mathematically.
+## CRITICAL SCORING RULES:
+1. Calculate each score by going through EVERY criterion above
+2. Document your calculation in your reasoning before outputting
+3. The SAME resume must ALWAYS produce the SAME scores
+4. Round all scores to the nearest integer
+5. Be strict but fair - partial credit is NOT allowed (criterion is either met or not)
 
 ## OUTPUT FORMAT (JSON only, no markdown):
 {
@@ -348,13 +387,14 @@ const callLLM = async (
   systemContent: string,
   userContent: string,
   model: string = "google/gemini-2.5-flash",
-  retries: number = 3
+  retries: number = 3,
+  temperature: number = 0.1 // Low temperature for consistent scoring
 ): Promise<string> => {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`[LLM] Attempt ${attempt + 1}/${retries} with model: ${model}`);
+      console.log(`[LLM] Attempt ${attempt + 1}/${retries} with model: ${model}, temp: ${temperature}`);
       
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -364,6 +404,7 @@ const callLLM = async (
         },
         body: JSON.stringify({
           model,
+          temperature, // Use low temperature for deterministic output
           messages: [
             { role: "system", content: systemContent },
             { role: "user", content: userContent },
@@ -462,9 +503,11 @@ const finalAnalysisChain = async (
   
   const response = await callLLM(
     apiKey,
-    "You are an expert ATS analyst. Provide personalized, specific feedback. Return only valid JSON.",
+    "You are an expert ATS analyst. Follow the scoring rubric EXACTLY. Calculate scores mathematically based on the criteria. Return only valid JSON.",
     prompt,
-    "google/gemini-2.5-pro" // Use pro model for final analysis
+    "google/gemini-2.5-pro", // Use pro model for final analysis
+    3, // retries
+    0 // temperature = 0 for fully deterministic scoring
   );
   return OutputParsers.parseJSON(response);
 };

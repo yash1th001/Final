@@ -2,6 +2,10 @@ import { jsPDF } from 'jspdf';
 import { AnalysisResult } from '@/components/AnalyzerSection';
 
 export async function generateAnalysisReport(results: AnalysisResult): Promise<void> {
+  if (!results) {
+    throw new Error("No analysis results to generate report from");
+  }
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 20;
@@ -25,9 +29,16 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
   // Helper to safely convert suggestion items to strings
   const toDisplayString = (item: unknown): string => {
     if (typeof item === 'string') return item;
-    if (item && typeof item === 'object') {
+    if (item === null || item === undefined) return '';
+    if (typeof item === 'object') {
       const obj = item as Record<string, unknown>;
-      return (obj.change || obj.improved || obj.suggestion || JSON.stringify(item)) as string;
+      const text = obj.change || obj.improved || obj.suggestion || obj.text || obj.description;
+      if (typeof text === 'string') return text;
+      try {
+        return JSON.stringify(item);
+      } catch {
+        return String(item);
+      }
     }
     return String(item);
   };
@@ -127,8 +138,8 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
   yPosition += 15;
   
   // Suggestions Section
-  const addSection = (title: string, items: unknown[], color: [number, number, number], symbol: string) => {
-    if (!items || items.length === 0) return;
+  const addSection = (title: string, items: unknown[] | undefined | null, color: [number, number, number], symbol: string) => {
+    if (!items || !Array.isArray(items) || items.length === 0) return;
     
     if (yPosition > 250) {
       doc.addPage();
@@ -153,6 +164,8 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
       }
       
       const displayText = toDisplayString(item);
+      if (!displayText || displayText.trim() === '') return;
+      
       const lines = doc.splitTextToSize(`${symbol} ${displayText}`, contentWidth - 5);
       lines.forEach((line: string) => {
         doc.text(line, margin + 5, yPosition);
@@ -164,9 +177,9 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
     yPosition += 8;
   };
   
-  addSection('Add to Resume', results.suggestions.additions || [], accentColor, '+');
-  addSection('Remove from Resume', results.suggestions.removals || [], destructiveColor, '−');
-  addSection('Improvements', results.suggestions.improvements || [], primaryColor, '→');
+  addSection('Add to Resume', results.suggestions?.additions, accentColor, '+');
+  addSection('Remove from Resume', results.suggestions?.removals, destructiveColor, '−');
+  addSection('Improvements', results.suggestions?.improvements, primaryColor, '→');
   
   // Structure Analysis
   if (yPosition > 220) {
