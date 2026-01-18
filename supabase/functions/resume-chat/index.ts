@@ -144,7 +144,7 @@ Improvements: ${context.analysisResults.suggestions.improvements.join("; ")}
 ${context.resumeText}
 
 ### TARGET JOB DESCRIPTION:
-${context.jobDescription}
+${context.jobDescription || "No job description provided - focus on general resume best practices and ATS optimization."}
 
 ## CONVERSATION GUIDELINES:
 
@@ -293,10 +293,10 @@ serve(async (req) => {
       conversationHistory = [],
     }: ChatRequest = await req.json();
 
-    if (!message || !resumeText || !jobDescription || !analysisResults) {
+    if (!message || !resumeText || !analysisResults) {
       return new Response(
         JSON.stringify({
-          error: "Message, resume, job description, and analysis results are required",
+          error: "Message, resume, and analysis results are required",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
