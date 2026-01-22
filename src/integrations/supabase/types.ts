@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      resume_analyses: {
+        Row: {
+          ats_score: number
+          candidate_context: Json | null
+          created_at: string
+          id: string
+          jd_match_score: number | null
+          job_description: string | null
+          resume_text: string
+          structure_analysis: Json | null
+          structure_score: number
+          suggestions: Json
+          user_id: string
+        }
+        Insert: {
+          ats_score: number
+          candidate_context?: Json | null
+          created_at?: string
+          id?: string
+          jd_match_score?: number | null
+          job_description?: string | null
+          resume_text: string
+          structure_analysis?: Json | null
+          structure_score: number
+          suggestions?: Json
+          user_id: string
+        }
+        Update: {
+          ats_score?: number
+          candidate_context?: Json | null
+          created_at?: string
+          id?: string
+          jd_match_score?: number | null
+          job_description?: string | null
+          resume_text?: string
+          structure_analysis?: Json | null
+          structure_score?: number
+          suggestions?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

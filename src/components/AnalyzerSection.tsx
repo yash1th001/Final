@@ -6,14 +6,18 @@ import TextInput from "./TextInput";
 import ResultsSection from "./ResultsSection";
 import ResumeChat from "./ResumeChat";
 import TailoredResumeSection from "./TailoredResumeSection";
+import LoginPrompt from "./LoginPrompt";
+import AnalysisHistory from "./AnalysisHistory";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
+
 export interface AnalysisResult {
   atsScore: number;
-  jdMatchScore?: number; // Optional - only present when JD is provided
+  jdMatchScore?: number;
   structureScore: number;
-  hasJobDescription: boolean; // Flag to indicate if JD was provided
+  hasJobDescription: boolean;
   suggestions: {
     additions: string[];
     removals: string[];
@@ -37,6 +41,7 @@ export interface AnalysisResult {
 }
 
 const AnalyzerSection = () => {
+  const { user, isLoading: authLoading } = useAuth();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
@@ -106,7 +111,7 @@ const AnalyzerSection = () => {
       const { data, error } = await supabase.functions.invoke('analyze-resume', {
         body: {
           resumeText: finalResumeText,
-          jobDescription: jobDescription.trim() || null, // Pass null if empty
+          jobDescription: jobDescription.trim() || null,
         },
       });
 
@@ -119,7 +124,14 @@ const AnalyzerSection = () => {
         throw new Error(data.error);
       }
 
-      setResults(data as AnalysisResult);
+      const analysisResult = data as AnalysisResult;
+      setResults(analysisResult);
+
+      // Save to database
+      if (user) {
+        await saveAnalysisToHistory(finalResumeText, analysisResult);
+      }
+
       toast({
         title: "Analysis Complete!",
         description: "Your resume has been analyzed with AI. Check out the personalized results below.",
@@ -136,12 +148,74 @@ const AnalyzerSection = () => {
     }
   };
 
+  const saveAnalysisToHistory = async (resumeTextToSave: string, analysisResult: AnalysisResult) => {
+    try {
+      await (supabase as any).from("resume_analyses").insert({
+        user_id: user?.id,
+        resume_text: resumeTextToSave,
+        job_description: jobDescription.trim() || null,
+        ats_score: analysisResult.atsScore,
+        jd_match_score: analysisResult.jdMatchScore ?? null,
+        structure_score: analysisResult.structureScore,
+        suggestions: analysisResult.suggestions,
+        structure_analysis: analysisResult.structureAnalysis,
+        candidate_context: analysisResult.candidateContext ?? null,
+      });
+    } catch (error) {
+      console.error("Failed to save analysis:", error);
+    }
+  };
+
   const resetAnalysis = () => {
     setResults(null);
     setResumeFile(null);
     setResumeText("");
     setJobDescription("");
   };
+
+  const handleLoadAnalysis = (result: AnalysisResult, loadedResumeText: string, loadedJobDescription: string) => {
+    setResults(result);
+    setResumeText(loadedResumeText);
+    setJobDescription(loadedJobDescription);
+  };
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <section id="analyzer" className="py-16 lg:py-24">
+        <div className="container mx-auto px-4 flex justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </section>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <section id="analyzer" className="py-16 lg:py-24 relative">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-1/2 left-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+        </div>
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center mb-12 animate-fade-in">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+              <Brain className="w-3.5 h-3.5" />
+              Powered by AI
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Resume Analyzer
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Sign in to analyze your resume and track your progress.
+            </p>
+          </div>
+          <LoginPrompt />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="analyzer" className="py-16 lg:py-24 relative">
@@ -163,6 +237,11 @@ const AnalyzerSection = () => {
           <p className="text-muted-foreground text-lg">
             Upload your resume to get instant ATS score. Add a job description for JD match analysis.
           </p>
+          
+          {/* History button */}
+          <div className="mt-4">
+            <AnalysisHistory onLoadAnalysis={handleLoadAnalysis} />
+          </div>
         </div>
 
         {!results ? (
