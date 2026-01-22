@@ -1,8 +1,8 @@
-import { FileText, Sparkles, Menu } from "lucide-react";
+import { FileText, Menu } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
 import ThemeToggle from "./ThemeToggle";
-
+import UserMenu from "./auth/UserMenu";
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -52,13 +52,9 @@ const Header = () => {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ThemeToggle />
-          
-          <Button variant="hero" size="sm" className="gap-2 group">
-            <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
-            <span className="hidden sm:inline">Get Started</span>
-          </Button>
+          <UserMenu />
           
           {/* Mobile menu button */}
           <Button 
