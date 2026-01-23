@@ -12,6 +12,7 @@ const corsHeaders = {
 interface AnalysisRequest {
   resumeText: string;
   jobDescription: string | null;
+  geminiApiKey?: string;
 }
 
 interface ChainContext {
@@ -382,57 +383,72 @@ const OutputParsers = {
 // CHAIN EXECUTORS (LangChain-style)
 // ============================================
 
-const callLLM = async (
+const callGeminiLLM = async (
   apiKey: string,
   systemContent: string,
   userContent: string,
-  model: string = "google/gemini-2.5-flash",
   retries: number = 3,
-  temperature: number = 0.1 // Low temperature for consistent scoring
+  temperature: number = 0.1
 ): Promise<string> => {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`[LLM] Attempt ${attempt + 1}/${retries} with model: ${model}, temp: ${temperature}`);
+      console.log(`[Gemini LLM] Attempt ${attempt + 1}/${retries}, temp: ${temperature}`);
       
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          temperature, // Use low temperature for deterministic output
-          messages: [
-            { role: "system", content: systemContent },
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: systemContent + "\n\n" + userContent }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: temperature,
+              maxOutputTokens: 4096,
+            }
+          }),
+        }
+      );
 
-      if (response.status === 503 || response.status === 429) {
-        console.log(`[LLM] Got ${response.status}, retrying after delay...`);
+      if (response.status === 429) {
+        console.log(`[Gemini] Rate limited, retrying after delay...`);
         await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
         continue;
       }
 
       if (!response.ok) {
-        const status = response.status;
-        if (status === 429) throw new Error("RATE_LIMIT");
-        if (status === 402) throw new Error("PAYMENT_REQUIRED");
-        throw new Error(`LLM call failed: ${status}`);
+        const errorText = await response.text();
+        console.error(`[Gemini] API error: ${response.status}`, errorText);
+        
+        if (response.status === 400 && errorText.includes("API_KEY_INVALID")) {
+          throw new Error("INVALID_API_KEY");
+        }
+        
+        throw new Error(`Gemini API error: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.choices?.[0]?.message?.content || "";
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      if (!content) {
+        throw new Error("Empty response from Gemini");
+      }
+      
+      return content;
     } catch (error) {
-      console.error(`[LLM] Attempt ${attempt + 1} failed:`, error);
+      console.error(`[Gemini] Attempt ${attempt + 1} failed:`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      // Don't retry on these specific errors
-      if (lastError.message === "RATE_LIMIT" || lastError.message === "PAYMENT_REQUIRED") {
+      if (lastError.message === "INVALID_API_KEY") {
         throw lastError;
       }
       
@@ -442,14 +458,14 @@ const callLLM = async (
     }
   }
   
-  throw lastError || new Error("All LLM retry attempts failed");
+  throw lastError || new Error("All Gemini retry attempts failed");
 };
 
 // Chain 1: Extract Resume Data
 const extractResumeChain = async (apiKey: string, resumeText: string): Promise<ResumeData> => {
   console.log("[Chain 1] Extracting resume data...");
   const prompt = PromptTemplates.resumeExtraction.replace("{resumeText}", resumeText);
-  const response = await callLLM(apiKey, "You are a precise data extractor. Return only valid JSON.", prompt);
+  const response = await callGeminiLLM(apiKey, "You are a precise data extractor. Return only valid JSON.", prompt);
   const parsed = OutputParsers.parseJSON(response);
   return OutputParsers.validateResumeData(parsed);
 };
@@ -458,36 +474,35 @@ const extractResumeChain = async (apiKey: string, resumeText: string): Promise<R
 const extractJDChain = async (apiKey: string, jobDescription: string): Promise<JobRequirements> => {
   console.log("[Chain 2] Extracting job requirements...");
   const prompt = PromptTemplates.jdExtraction.replace("{jobDescription}", jobDescription);
-  const response = await callLLM(apiKey, "You are a precise data extractor. Return only valid JSON.", prompt);
+  const response = await callGeminiLLM(apiKey, "You are a precise data extractor. Return only valid JSON.", prompt);
   const parsed = OutputParsers.parseJSON(response);
   return OutputParsers.validateJobRequirements(parsed);
 };
 
 // Chain 3: Gap Analysis
 const gapAnalysisChain = async (
-  apiKey: string,
-  extractedResume: ResumeData,
+  apiKey: string, 
+  extractedResume: ResumeData, 
   extractedJD: JobRequirements
 ): Promise<GapAnalysis> => {
   console.log("[Chain 3] Performing gap analysis...");
   const prompt = PromptTemplates.gapAnalysis
     .replace("{extractedResume}", JSON.stringify(extractedResume, null, 2))
     .replace("{extractedJD}", JSON.stringify(extractedJD, null, 2));
-  const response = await callLLM(apiKey, "You are a gap analysis expert. Return only valid JSON.", prompt);
+  const response = await callGeminiLLM(apiKey, "You are a gap analysis expert. Return only valid JSON.", prompt);
   const parsed = OutputParsers.parseJSON(response);
   return OutputParsers.validateGapAnalysis(parsed);
 };
 
-// Chain 4: Final Analysis (uses all previous chain outputs)
+// Chain 4: Final Analysis
 const finalAnalysisChain = async (
   apiKey: string,
   context: ChainContext
 ): Promise<unknown> => {
-  console.log("[Chain 4] Generating final personalized analysis...");
+  console.log("[Chain 4] Generating final analysis...");
   
   let prompt: string;
   if (context.jobDescription && context.extractedJD && context.gapAnalysis) {
-    // Full analysis with JD
     prompt = PromptTemplates.finalAnalysisWithJD
       .replace("{extractedResume}", JSON.stringify(context.extractedResume, null, 2))
       .replace("{extractedJD}", JSON.stringify(context.extractedJD, null, 2))
@@ -495,25 +510,21 @@ const finalAnalysisChain = async (
       .replace("{resumeText}", context.resumeText)
       .replace("{jobDescription}", context.jobDescription);
   } else {
-    // Resume-only analysis
     prompt = PromptTemplates.finalAnalysisResumeOnly
       .replace("{extractedResume}", JSON.stringify(context.extractedResume, null, 2))
       .replace("{resumeText}", context.resumeText);
   }
   
-  const response = await callLLM(
-    apiKey,
-    "You are an expert ATS analyst. Follow the scoring rubric EXACTLY. Calculate scores mathematically based on the criteria. Return only valid JSON.",
-    prompt,
-    "google/gemini-2.5-pro", // Use pro model for final analysis
-    3, // retries
-    0 // temperature = 0 for fully deterministic scoring
+  const response = await callGeminiLLM(
+    apiKey, 
+    "You are an expert ATS analyst. Return only valid JSON matching the exact schema specified.", 
+    prompt
   );
   return OutputParsers.parseJSON(response);
 };
 
 // ============================================
-// SEQUENTIAL CHAIN (LangChain-style pipeline)
+// PIPELINE ORCHESTRATOR
 // ============================================
 
 const runAnalysisPipeline = async (
@@ -522,41 +533,35 @@ const runAnalysisPipeline = async (
   jobDescription: string | null
 ): Promise<unknown> => {
   console.log("=== Starting LangChain-style Analysis Pipeline ===");
-  console.log("Has Job Description:", !!jobDescription);
+  console.log(`JD provided: ${!!jobDescription}`);
   
-  const context: ChainContext = { resumeText, jobDescription };
-
+  const context: ChainContext = {
+    resumeText,
+    jobDescription,
+  };
+  
   if (jobDescription) {
-    // Run extraction chains in parallel for efficiency (with JD)
-    console.log("[Pipeline] Running parallel extraction chains with JD...");
+    console.log("[Pipeline] Running parallel extraction...");
     const [extractedResume, extractedJD] = await Promise.all([
       extractResumeChain(apiKey, resumeText),
       extractJDChain(apiKey, jobDescription),
     ]);
-
+    
     context.extractedResume = extractedResume;
     context.extractedJD = extractedJD;
-
-    console.log("[Pipeline] Resume extracted:", extractedResume.candidateName);
-    console.log("[Pipeline] JD extracted:", extractedJD.title);
-
-    // Run gap analysis (depends on extraction results)
+    
+    console.log("[Pipeline] Running gap analysis...");
     context.gapAnalysis = await gapAnalysisChain(apiKey, extractedResume, extractedJD);
-    console.log("[Pipeline] Gaps identified:", context.gapAnalysis.missingSkills.length, "missing skills");
   } else {
-    // Resume-only extraction
     console.log("[Pipeline] Running resume-only extraction...");
     context.extractedResume = await extractResumeChain(apiKey, resumeText);
-    context.extractedJD = null;
-    context.gapAnalysis = null;
-    console.log("[Pipeline] Resume extracted:", context.extractedResume.candidateName);
   }
-
-  // Run final analysis (uses all context)
-  const finalResult = await finalAnalysisChain(apiKey, context);
+  
+  console.log("[Pipeline] Running final analysis...");
+  const result = await finalAnalysisChain(apiKey, context);
+  
   console.log("=== Pipeline Complete ===");
-
-  return finalResult;
+  return result;
 };
 
 // ============================================
@@ -569,56 +574,52 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeText, jobDescription }: AnalysisRequest = await req.json();
-
-    if (!resumeText) {
+    const { resumeText, jobDescription, geminiApiKey } = await req.json() as AnalysisRequest;
+    
+    console.log("Received AI analysis request");
+    console.log(`Resume length: ${resumeText?.length || 0} chars`);
+    console.log(`Has Job Description: ${!!jobDescription}`);
+    console.log(`Has Gemini API Key: ${!!geminiApiKey}`);
+    
+    if (!resumeText || resumeText.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Resume text is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    if (!geminiApiKey || geminiApiKey.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Gemini API key is required for AI analysis mode" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log("Received analysis request");
-    console.log("Resume length:", resumeText.length, "chars");
-    console.log("JD provided:", !!jobDescription);
-    if (jobDescription) console.log("JD length:", jobDescription.length, "chars");
-
-    const result = await runAnalysisPipeline(LOVABLE_API_KEY, resumeText, jobDescription || null);
-
+    
+    const result = await runAnalysisPipeline(
+      geminiApiKey.trim(),
+      resumeText.trim(),
+      jobDescription?.trim() || null
+    );
+    
     return new Response(
       JSON.stringify(result),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
+    
   } catch (error) {
     console.error("Error in analyze-resume function:", error);
     
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    if (errorMessage === "RATE_LIMIT") {
+    if (errorMessage === "INVALID_API_KEY") {
       return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Invalid Gemini API key. Please check your API key and try again." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    if (errorMessage === "PAYMENT_REQUIRED") {
-      return new Response(
-        JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    
     return new Response(
-      JSON.stringify({ error: "Failed to analyze resume. Please try again." }),
+      JSON.stringify({ error: "Analysis failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

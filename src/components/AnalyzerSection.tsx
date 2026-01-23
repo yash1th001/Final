@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { Sparkles, Loader2, Brain, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Loader2, Brain, Zap, Cpu, Key, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
 import ResultsSection from "./ResultsSection";
@@ -12,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
+import { analyzeResumeLocally } from "@/lib/localResumeAnalyzer";
 
 export interface AnalysisResult {
   atsScore: number;
@@ -40,6 +43,10 @@ export interface AnalysisResult {
   };
 }
 
+type AnalysisMode = "normal" | "ai";
+
+const GEMINI_API_KEY_STORAGE = "gemini_api_key";
+
 const AnalyzerSection = () => {
   const { user, isLoading: authLoading } = useAuth();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -48,6 +55,29 @@ const AnalyzerSection = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [results, setResults] = useState<AnalysisResult | null>(null);
+  
+  // New state for mode selection
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("normal");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  // Load saved API key on mount
+  useEffect(() => {
+    const savedKey = localStorage.getItem(GEMINI_API_KEY_STORAGE);
+    if (savedKey) {
+      setGeminiApiKey(savedKey);
+    }
+  }, []);
+
+  // Save API key when it changes
+  const handleApiKeyChange = (value: string) => {
+    setGeminiApiKey(value);
+    if (value.trim()) {
+      localStorage.setItem(GEMINI_API_KEY_STORAGE, value.trim());
+    } else {
+      localStorage.removeItem(GEMINI_API_KEY_STORAGE);
+    }
+  };
 
   const handleFileSelect = async (file: File | null) => {
     setResumeFile(file);
@@ -84,7 +114,15 @@ const AnalyzerSection = () => {
       return;
     }
 
-    // Job description is now optional
+    // Check for API key if AI mode is selected
+    if (analysisMode === "ai" && !geminiApiKey.trim()) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your Gemini API key for AI analysis mode.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsAnalyzing(true);
 
@@ -107,24 +145,43 @@ const AnalyzerSection = () => {
         }
       }
 
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke('analyze-resume', {
-        body: {
-          resumeText: finalResumeText,
-          jobDescription: jobDescription.trim() || null,
-        },
-      });
+      let analysisResult: AnalysisResult;
 
-      if (error) {
-        console.error("Analysis error:", error);
-        throw new Error(error.message || "Failed to analyze resume");
+      if (analysisMode === "normal") {
+        // Local TF-IDF based analysis
+        analysisResult = analyzeResumeLocally(finalResumeText, jobDescription.trim() || null);
+        
+        toast({
+          title: "Analysis Complete!",
+          description: "Your resume has been analyzed locally using keyword matching.",
+        });
+      } else {
+        // AI-powered analysis using Gemini
+        const { data, error } = await supabase.functions.invoke('analyze-resume', {
+          body: {
+            resumeText: finalResumeText,
+            jobDescription: jobDescription.trim() || null,
+            geminiApiKey: geminiApiKey.trim(),
+          },
+        });
+
+        if (error) {
+          console.error("Analysis error:", error);
+          throw new Error(error.message || "Failed to analyze resume");
+        }
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        analysisResult = data as AnalysisResult;
+
+        toast({
+          title: "Analysis Complete!",
+          description: "Your resume has been analyzed with AI. Check out the personalized results below.",
+        });
       }
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      const analysisResult = data as AnalysisResult;
       setResults(analysisResult);
 
       // Save to database
@@ -132,10 +189,6 @@ const AnalyzerSection = () => {
         await saveAnalysisToHistory(finalResumeText, analysisResult);
       }
 
-      toast({
-        title: "Analysis Complete!",
-        description: "Your resume has been analyzed with AI. Check out the personalized results below.",
-      });
     } catch (error) {
       console.error("Analysis failed:", error);
       toast({
@@ -202,7 +255,7 @@ const AnalyzerSection = () => {
           <div className="max-w-3xl mx-auto text-center mb-12 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
               <Brain className="w-3.5 h-3.5" />
-              Powered by AI
+              Resume Analysis
             </div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
               Resume Analyzer
@@ -229,7 +282,7 @@ const AnalyzerSection = () => {
         <div className="max-w-3xl mx-auto text-center mb-12 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
             <Brain className="w-3.5 h-3.5" />
-            Powered by AI
+            Resume Analysis
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
             Resume Analyzer
@@ -247,6 +300,92 @@ const AnalyzerSection = () => {
         {!results ? (
           <div className="max-w-4xl mx-auto animate-slide-up" style={{ animationDelay: "0.1s" }}>
             <div className="bg-card rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-300 p-6 md:p-8 border border-border card-shine">
+              
+              {/* Mode Selection */}
+              <div className="mb-8">
+                <Label className="text-sm font-medium mb-3 block">Analysis Mode</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setAnalysisMode("normal")}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                      analysisMode === "normal"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${analysisMode === "normal" ? "bg-primary/10" : "bg-muted"}`}>
+                        <Cpu className={`w-5 h-5 ${analysisMode === "normal" ? "text-primary" : "text-muted-foreground"}`} />
+                      </div>
+                      <span className="font-semibold">Normal Review</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Fast, local analysis using TF-IDF keyword matching. No API key required.
+                    </p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setAnalysisMode("ai")}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                      analysisMode === "ai"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${analysisMode === "ai" ? "bg-primary/10" : "bg-muted"}`}>
+                        <Sparkles className={`w-5 h-5 ${analysisMode === "ai" ? "text-primary" : "text-muted-foreground"}`} />
+                      </div>
+                      <span className="font-semibold">AI Review</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Advanced AI analysis using Google Gemini. Requires free API key.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Gemini API Key Input (only shown for AI mode) */}
+              {analysisMode === "ai" && (
+                <div className="mb-8 p-4 rounded-xl bg-muted/50 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Key className="w-4 h-4 text-primary" />
+                    <Label htmlFor="gemini-api-key" className="text-sm font-medium">
+                      Gemini API Key
+                    </Label>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="gemini-api-key"
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="Enter your Gemini API key..."
+                      value={geminiApiKey}
+                      onChange={(e) => handleApiKeyChange(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Get your free API key from{" "}
+                    <a
+                      href="https://aistudio.google.com/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Google AI Studio
+                    </a>
+                    . Your key is stored locally and never sent to our servers.
+                  </p>
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-6 mb-8">
                 <div className="space-y-6">
                   <FileUpload
@@ -288,7 +427,7 @@ const AnalyzerSection = () => {
                   variant="hero"
                   size="xl"
                   onClick={handleAnalyze}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || (analysisMode === "ai" && !geminiApiKey.trim())}
                   className="min-w-[220px] group relative overflow-hidden"
                 >
                   {isAnalyzing ? (
@@ -298,8 +437,12 @@ const AnalyzerSection = () => {
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                      Analyze Resume
+                      {analysisMode === "ai" ? (
+                        <Sparkles className="w-5 h-5 transition-transform group-hover:rotate-12" />
+                      ) : (
+                        <Cpu className="w-5 h-5 transition-transform group-hover:rotate-12" />
+                      )}
+                      {analysisMode === "ai" ? "AI Analyze" : "Analyze Resume"}
                       <Zap className="w-4 h-4 absolute right-4 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0 translate-x-2" />
                     </>
                   )}
@@ -308,7 +451,13 @@ const AnalyzerSection = () => {
               
               {/* Feature hints */}
               <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs text-muted-foreground">
-                {["ATS Score", "Structure Analysis", "Suggestions", jobDescription.trim() ? "JD Match" : ""].filter(Boolean).map((feature) => (
+                {[
+                  "ATS Score", 
+                  "Structure Analysis", 
+                  "Suggestions", 
+                  jobDescription.trim() ? "JD Match" : "",
+                  analysisMode === "ai" ? "AI-Powered" : "Local Analysis"
+                ].filter(Boolean).map((feature) => (
                   <span key={feature} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
                     {feature}
