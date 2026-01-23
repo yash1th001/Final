@@ -396,8 +396,9 @@ const callGeminiLLM = async (
     try {
       console.log(`[Gemini LLM] Attempt ${attempt + 1}/${retries}, temp: ${temperature}`);
       
+      // Use gemini-2.0-flash model
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: {
