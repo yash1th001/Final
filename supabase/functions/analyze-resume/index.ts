@@ -383,11 +383,11 @@ const OutputParsers = {
 // CHAIN EXECUTORS (LangChain-style)
 // ============================================
 
-// Available Gemini models in order of preference
+// Available Gemini models in order of preference (v1beta API)
 const GEMINI_MODELS = [
   "gemini-2.0-flash",
-  "gemini-1.5-flash-latest", 
-  "gemini-1.5-pro-latest",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash-8b",
 ];
 
 const callGeminiLLM = async (
