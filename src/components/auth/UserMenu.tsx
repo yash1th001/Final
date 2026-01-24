@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Loader2 } from "lucide-react";
 import AuthModal from "./AuthModal";
+import ProfileSettingsDialog from "@/components/profile/ProfileSettingsDialog";
 
 const UserMenu = () => {
   const { user, isLoading, signOut } = useAuth();
@@ -55,6 +56,10 @@ const UserMenu = () => {
           <p className="text-sm font-medium">{user.email}</p>
           <p className="text-xs text-muted-foreground">Signed in</p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <ProfileSettingsDialog />
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="text-destructive">
           <LogOut className="h-4 w-4 mr-2" />

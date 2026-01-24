@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2, Brain, Zap, Cpu, Key, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Loader2, Brain, Zap, Cpu, Key, CheckCircle } from "lucide-react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import FileUpload from "./FileUpload";
 import TextInput from "./TextInput";
@@ -10,9 +9,11 @@ import ResumeChat from "./ResumeChat";
 import TailoredResumeSection from "./TailoredResumeSection";
 import LoginPrompt from "./LoginPrompt";
 import AnalysisHistory from "./AnalysisHistory";
+import ApiKeyDialog from "./profile/ApiKeyDialog";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useProfile } from "@/hooks/use-profile";
 import { extractTextFromPDF, isValidPDFFile } from "@/lib/pdfParser";
 import { analyzeResumeLocally } from "@/lib/localResumeAnalyzer";
 
@@ -45,10 +46,9 @@ export interface AnalysisResult {
 
 type AnalysisMode = "normal" | "ai";
 
-const GEMINI_API_KEY_STORAGE = "gemini_api_key";
-
 const AnalyzerSection = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const { geminiApiKey, hasApiKey, isLoading: profileLoading } = useProfile();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
@@ -56,28 +56,18 @@ const AnalyzerSection = () => {
   const [isParsing, setIsParsing] = useState(false);
   const [results, setResults] = useState<AnalysisResult | null>(null);
   
-  // New state for mode selection
+  // Mode selection and API key dialog state
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("normal");
-  const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [pendingAnalysis, setPendingAnalysis] = useState(false);
 
-  // Load saved API key on mount
+  // When API key is successfully saved and we have pending analysis, trigger it
   useEffect(() => {
-    const savedKey = localStorage.getItem(GEMINI_API_KEY_STORAGE);
-    if (savedKey) {
-      setGeminiApiKey(savedKey);
+    if (pendingAnalysis && hasApiKey) {
+      setPendingAnalysis(false);
+      handleAnalyze();
     }
-  }, []);
-
-  // Save API key when it changes
-  const handleApiKeyChange = (value: string) => {
-    setGeminiApiKey(value);
-    if (value.trim()) {
-      localStorage.setItem(GEMINI_API_KEY_STORAGE, value.trim());
-    } else {
-      localStorage.removeItem(GEMINI_API_KEY_STORAGE);
-    }
-  };
+  }, [hasApiKey, pendingAnalysis]);
 
   const handleFileSelect = async (file: File | null) => {
     setResumeFile(file);
@@ -114,13 +104,11 @@ const AnalyzerSection = () => {
       return;
     }
 
-    // Check for API key if AI mode is selected
-    if (analysisMode === "ai" && !geminiApiKey.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter your Gemini API key for AI analysis mode.",
-        variant: "destructive",
-      });
+    // For AI mode, check if we have an API key stored
+    if (analysisMode === "ai" && !hasApiKey) {
+      // Show the API key dialog and set pending analysis flag
+      setShowApiKeyDialog(true);
+      setPendingAnalysis(true);
       return;
     }
 
@@ -241,8 +229,8 @@ const AnalyzerSection = () => {
     setJobDescription(loadedJobDescription);
   };
 
-  // Show loading state while checking auth
-  if (authLoading) {
+  // Show loading state while checking auth or profile
+  if (authLoading || profileLoading) {
     return (
       <section id="analyzer" className="py-16 lg:py-24">
         <div className="container mx-auto px-4 flex justify-center">
@@ -354,43 +342,36 @@ const AnalyzerSection = () => {
                 </div>
               </div>
 
-              {/* Gemini API Key Input (only shown for AI mode) */}
+              {/* API Key Status (only shown for AI mode) */}
               {analysisMode === "ai" && (
                 <div className="mb-8 p-4 rounded-xl bg-muted/50 border border-border">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Key className="w-4 h-4 text-primary" />
-                    <Label htmlFor="gemini-api-key" className="text-sm font-medium">
-                      Gemini API Key
-                    </Label>
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="gemini-api-key"
-                      type={showApiKey ? "text" : "password"}
-                      placeholder="Enter your Gemini API key..."
-                      value={geminiApiKey}
-                      onChange={(e) => handleApiKeyChange(e.target.value)}
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-4 h-4 text-primary" />
+                      <Label className="text-sm font-medium">
+                        Gemini API Key
+                      </Label>
+                    </div>
+                    {hasApiKey ? (
+                      <div className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Configured</span>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowApiKeyDialog(true)}
+                      >
+                        Add API Key
+                      </Button>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Get your free API key from{" "}
-                    <a
-                      href="https://aistudio.google.com/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      Google AI Studio
-                    </a>
-                    . Your key is stored locally and never sent to our servers.
+                    {hasApiKey 
+                      ? "Your API key is securely stored. You can update it in Settings."
+                      : "You'll be prompted to enter your API key when starting AI analysis."
+                    }
                   </p>
                 </div>
               )}
@@ -436,7 +417,7 @@ const AnalyzerSection = () => {
                   variant="hero"
                   size="xl"
                   onClick={handleAnalyze}
-                  disabled={isAnalyzing || (analysisMode === "ai" && !geminiApiKey.trim())}
+                  disabled={isAnalyzing}
                   className="min-w-[220px] group relative overflow-hidden"
                 >
                   {isAnalyzing ? (
@@ -457,6 +438,18 @@ const AnalyzerSection = () => {
                   )}
                 </Button>
               </div>
+
+              {/* API Key Dialog */}
+              <ApiKeyDialog
+                isOpen={showApiKeyDialog}
+                onClose={() => {
+                  setShowApiKeyDialog(false);
+                  setPendingAnalysis(false);
+                }}
+                onSuccess={() => {
+                  // Analysis will be triggered by useEffect when hasApiKey becomes true
+                }}
+              />
               
               {/* Feature hints */}
               <div className="flex flex-wrap justify-center gap-4 mt-6 text-xs text-muted-foreground">
