@@ -171,7 +171,16 @@ const AnalyzerSection = () => {
         }
 
         if (data.error) {
-          throw new Error(data.error);
+          // Parse specific error types for better user feedback
+          const errorMsg = data.error;
+          if (errorMsg.includes("RATE_LIMITED")) {
+            throw new Error("Your Gemini API key has hit its rate limit. Please wait 1-2 minutes and try again.");
+          } else if (errorMsg.includes("INVALID_API_KEY")) {
+            throw new Error("Invalid Gemini API key. Please check your key and try again.");
+          } else if (errorMsg.includes("API_KEY_FORBIDDEN")) {
+            throw new Error("API key access denied. Make sure the Generative Language API is enabled in your Google Cloud Console.");
+          }
+          throw new Error(errorMsg);
         }
 
         analysisResult = data as AnalysisResult;

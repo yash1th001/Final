@@ -387,18 +387,19 @@ const callGeminiLLM = async (
   apiKey: string,
   systemContent: string,
   userContent: string,
-  retries: number = 3,
+  retries: number = 5,
   temperature: number = 0.1
 ): Promise<string> => {
   let lastError: Error | null = null;
+  let rateLimitCount = 0;
   
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       console.log(`[Gemini LLM] Attempt ${attempt + 1}/${retries}, temp: ${temperature}`);
       
-      // Use gemini-2.0-flash model
+      // Use gemini-1.5-flash model (more stable and better rate limits)
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: {
@@ -421,8 +422,10 @@ const callGeminiLLM = async (
       );
 
       if (response.status === 429) {
-        console.log(`[Gemini] Rate limited, retrying after delay...`);
-        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        rateLimitCount++;
+        const delay = Math.min(5000 * Math.pow(2, attempt), 30000); // Exponential backoff, max 30s
+        console.log(`[Gemini] Rate limited (${rateLimitCount}x), waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
@@ -431,10 +434,14 @@ const callGeminiLLM = async (
         console.error(`[Gemini] API error: ${response.status}`, errorText);
         
         if (response.status === 400 && errorText.includes("API_KEY_INVALID")) {
-          throw new Error("INVALID_API_KEY");
+          throw new Error("INVALID_API_KEY: Your Gemini API key is invalid. Please check and try again.");
         }
         
-        throw new Error(`Gemini API error: ${response.status}`);
+        if (response.status === 403) {
+          throw new Error("API_KEY_FORBIDDEN: Your Gemini API key doesn't have access. Enable the Generative Language API in Google Cloud Console.");
+        }
+        
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -449,17 +456,24 @@ const callGeminiLLM = async (
       console.error(`[Gemini] Attempt ${attempt + 1} failed:`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
       
-      if (lastError.message === "INVALID_API_KEY") {
+      // Don't retry on authentication errors
+      if (lastError.message.includes("INVALID_API_KEY") || lastError.message.includes("API_KEY_FORBIDDEN")) {
         throw lastError;
       }
       
       if (attempt < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+        const delay = 3000 * (attempt + 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   
-  throw lastError || new Error("All Gemini retry attempts failed");
+  // Provide helpful error message based on what happened
+  if (rateLimitCount >= retries - 1) {
+    throw new Error("RATE_LIMITED: Your Gemini API key has hit its rate limit. Please wait a minute and try again, or use a different API key.");
+  }
+  
+  throw lastError || new Error("All Gemini retry attempts failed. Please check your API key and try again.");
 };
 
 // Chain 1: Extract Resume Data
