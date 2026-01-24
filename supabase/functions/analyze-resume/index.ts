@@ -383,97 +383,106 @@ const OutputParsers = {
 // CHAIN EXECUTORS (LangChain-style)
 // ============================================
 
+// Available Gemini models in order of preference
+const GEMINI_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-1.5-flash-latest", 
+  "gemini-1.5-pro-latest",
+];
+
 const callGeminiLLM = async (
   apiKey: string,
   systemContent: string,
   userContent: string,
-  retries: number = 5,
+  retries: number = 3,
   temperature: number = 0.1
 ): Promise<string> => {
   let lastError: Error | null = null;
-  let rateLimitCount = 0;
   
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      console.log(`[Gemini LLM] Attempt ${attempt + 1}/${retries}, temp: ${temperature}`);
-      
-      // Use gemini-2.0-flash model (currently available)
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: systemContent + "\n\n" + userContent }
-                ]
+  // Try each model
+  for (const model of GEMINI_MODELS) {
+    console.log(`[Gemini] Trying model: ${model}`);
+    
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        console.log(`[Gemini LLM] Model ${model}, Attempt ${attempt + 1}/${retries}`);
+        
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: systemContent + "\n\n" + userContent }
+                  ]
+                }
+              ],
+              generationConfig: {
+                temperature: temperature,
+                maxOutputTokens: 4096,
               }
-            ],
-            generationConfig: {
-              temperature: temperature,
-              maxOutputTokens: 4096,
-            }
-          }),
-        }
-      );
+            }),
+          }
+        );
 
-      if (response.status === 429) {
-        rateLimitCount++;
-        const delay = Math.min(5000 * Math.pow(2, attempt), 30000); // Exponential backoff, max 30s
-        console.log(`[Gemini] Rate limited (${rateLimitCount}x), waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Gemini] API error: ${response.status}`, errorText);
-        
-        if (response.status === 400 && errorText.includes("API_KEY_INVALID")) {
-          throw new Error("INVALID_API_KEY: Your Gemini API key is invalid. Please check and try again.");
+        if (response.status === 429) {
+          console.log(`[Gemini] Rate limited on ${model}, trying next model...`);
+          break; // Try next model
         }
         
-        if (response.status === 403) {
-          throw new Error("API_KEY_FORBIDDEN: Your Gemini API key doesn't have access. Enable the Generative Language API in Google Cloud Console.");
+        if (response.status === 404) {
+          console.log(`[Gemini] Model ${model} not found, trying next...`);
+          break; // Try next model
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[Gemini] API error: ${response.status}`, errorText);
+          
+          if (response.status === 400 && errorText.includes("API_KEY_INVALID")) {
+            throw new Error("INVALID_API_KEY: Your Gemini API key is invalid. Please check and try again.");
+          }
+          
+          if (response.status === 403) {
+            throw new Error("API_KEY_FORBIDDEN: Your Gemini API key doesn't have access. Enable the Generative Language API in Google Cloud Console.");
+          }
+          
+          lastError = new Error(`Gemini API error: ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        if (!content) {
+          throw new Error("Empty response from Gemini");
         }
         
-        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      
-      if (!content) {
-        throw new Error("Empty response from Gemini");
-      }
-      
-      return content;
-    } catch (error) {
-      console.error(`[Gemini] Attempt ${attempt + 1} failed:`, error);
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      // Don't retry on authentication errors
-      if (lastError.message.includes("INVALID_API_KEY") || lastError.message.includes("API_KEY_FORBIDDEN")) {
-        throw lastError;
-      }
-      
-      if (attempt < retries - 1) {
-        const delay = 3000 * (attempt + 1);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        console.log(`[Gemini] Success with model: ${model}`);
+        return content;
+      } catch (error) {
+        console.error(`[Gemini] Attempt ${attempt + 1} failed:`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Don't retry on authentication errors
+        if (lastError.message.includes("INVALID_API_KEY") || lastError.message.includes("API_KEY_FORBIDDEN")) {
+          throw lastError;
+        }
+        
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
       }
     }
   }
   
-  // Provide helpful error message based on what happened
-  if (rateLimitCount >= retries - 1) {
-    throw new Error("RATE_LIMITED: Your Gemini API key has hit its rate limit. Please wait a minute and try again, or use a different API key.");
-  }
-  
-  throw lastError || new Error("All Gemini retry attempts failed. Please check your API key and try again.");
+  // All models failed
+  throw new Error("RATE_LIMITED: All Gemini models are rate limited. Please wait a few minutes and try again, or use Normal Review mode.");
 };
 
 // Chain 1: Extract Resume Data
