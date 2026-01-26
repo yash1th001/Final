@@ -635,15 +635,30 @@ serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    if (errorMessage === "INVALID_API_KEY") {
+    // Handle specific error types with appropriate status codes and messages
+    if (errorMessage.includes("INVALID_API_KEY")) {
       return new Response(
-        JSON.stringify({ error: "Invalid Gemini API key. Please check your API key and try again." }),
+        JSON.stringify({ error: "Invalid Gemini API key. Please check your API key in Settings and try again." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
+    if (errorMessage.includes("API_KEY_FORBIDDEN")) {
+      return new Response(
+        JSON.stringify({ error: "Your API key doesn't have access to Gemini. Enable the Generative Language API in Google Cloud Console." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (errorMessage.includes("RATE_LIMITED")) {
+      return new Response(
+        JSON.stringify({ error: "Gemini API rate limit reached. Please wait a few minutes and try again, or use Normal Review mode." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: "Analysis failed. Please try again." }),
+      JSON.stringify({ error: errorMessage || "Analysis failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
