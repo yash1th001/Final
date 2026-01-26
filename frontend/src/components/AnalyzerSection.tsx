@@ -144,34 +144,48 @@ const AnalyzerSection = () => {
           description: "Your resume has been analyzed locally using keyword matching.",
         });
       } else {
-        // AI-powered analysis using Gemini
-        const { data, error } = await supabase.functions.invoke('analyze-resume', {
-          body: {
-            resumeText: finalResumeText,
-            jobDescription: jobDescription.trim() || null,
-            geminiApiKey: geminiApiKey.trim(),
-          },
-        });
+        // AI-powered analysis using Gemini via backend API
+        const backendUrl = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+        
+        const requestBody: any = {
+          resumeText: finalResumeText,
+          jobDescription: jobDescription.trim() || null,
+        };
 
-        if (error) {
-          console.error("Analysis error:", error);
-          throw new Error(error.message || "Failed to analyze resume");
+        // If user has provided their own Gemini API key, use it
+        // Otherwise, use Emergent LLM key (default)
+        if (geminiApiKey && geminiApiKey.trim()) {
+          requestBody.geminiApiKey = geminiApiKey.trim();
+          requestBody.useEmergentKey = false;
+        } else {
+          requestBody.useEmergentKey = true;
         }
 
-        if (data.error) {
+        const response = await fetch(`${backendUrl}/api/analyze-resume`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          const errorMsg = errorData.detail || errorData.message || 'Failed to analyze resume';
+          
           // Parse specific error types for better user feedback
-          const errorMsg = data.error;
-          if (errorMsg.includes("RATE_LIMITED")) {
-            throw new Error("Your Gemini API key has hit its rate limit. Please wait 1-2 minutes and try again.");
-          } else if (errorMsg.includes("INVALID_API_KEY")) {
+          if (response.status === 401 || errorMsg.includes("INVALID_API_KEY")) {
             throw new Error("Invalid Gemini API key. Please check your key and try again.");
-          } else if (errorMsg.includes("API_KEY_FORBIDDEN")) {
+          } else if (response.status === 403 || errorMsg.includes("API_KEY_FORBIDDEN")) {
             throw new Error("API key access denied. Make sure the Generative Language API is enabled in your Google Cloud Console.");
+          } else if (response.status === 429 || errorMsg.includes("RATE_LIMITED")) {
+            throw new Error("Gemini API rate limit reached. Please wait a few minutes and try again.");
           }
+          
           throw new Error(errorMsg);
         }
 
-        analysisResult = data as AnalysisResult;
+        analysisResult = await response.json() as AnalysisResult;
 
         toast({
           title: "Analysis Complete!",
