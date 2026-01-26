@@ -363,7 +363,7 @@ const AnalyzerSection = () => {
                     <div className="flex items-center gap-2">
                       <Key className="w-4 h-4 text-primary" />
                       <Label className="text-sm font-medium">
-                        Gemini API Key
+                        Gemini API Key (Optional)
                       </Label>
                     </div>
                     {hasApiKey ? (
@@ -377,14 +377,14 @@ const AnalyzerSection = () => {
                         size="sm"
                         onClick={() => setShowApiKeyDialog(true)}
                       >
-                        Add API Key
+                        Add Your Key
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     {hasApiKey 
-                      ? "Your API key is securely stored. You can update it in Settings."
-                      : "You'll be prompted to enter your API key when starting AI analysis."
+                      ? "Your API key is securely stored and will be used for analysis. Using Emergent key as fallback."
+                      : "No API key configured. The app will use Emergent universal key for AI analysis. You can optionally add your own key."
                     }
                   </p>
                 </div>
