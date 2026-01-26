@@ -350,7 +350,7 @@ const AnalyzerSection = () => {
                       <span className="font-semibold">AI Review</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Advanced AI analysis using Google Gemini. Requires free API key.
+                      Advanced AI analysis using Google Gemini. Works with Emergent key or your own API key.
                     </p>
                   </button>
                 </div>
