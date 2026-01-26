@@ -332,13 +332,25 @@ Generate a comprehensive ATS and structure analysis (NO job description provided
 
 const OutputParsers = {
   parseJSON: (content: string): unknown => {
-    // Remove markdown code blocks if present
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
+    try {
+      // Remove markdown code blocks if present
+      let jsonContent = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1].trim();
+      }
+      
+      // Try to extract JSON object if there's extra text
+      const objectMatch = jsonContent.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        jsonContent = objectMatch[0];
+      }
+      
+      return JSON.parse(jsonContent);
+    } catch (e) {
+      console.error("[OutputParsers] JSON parse failed:", e, "Content:", content.substring(0, 500));
+      throw new Error("JSON_PARSE_ERROR: Failed to parse AI response. Please try again.");
     }
-    return JSON.parse(jsonContent);
   },
 
   validateResumeData: (data: unknown): ResumeData => {
@@ -612,6 +624,24 @@ serve(async (req) => {
       );
     }
 
+    // Validate input size to prevent token limits and timeouts
+    const MAX_RESUME_LENGTH = 50000; // ~12k tokens
+    const MAX_JD_LENGTH = 20000;
+    
+    if (resumeText.length > MAX_RESUME_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Resume too long (${resumeText.length} chars). Max ${MAX_RESUME_LENGTH} chars.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (jobDescription && jobDescription.length > MAX_JD_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Job description too long (${jobDescription.length} chars). Max ${MAX_JD_LENGTH} chars.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!geminiApiKey || geminiApiKey.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "Gemini API key is required for AI analysis mode" }),
@@ -650,12 +680,22 @@ serve(async (req) => {
       );
     }
     
-    if (errorMessage.includes("RATE_LIMITED")) {
+    if (errorMessage.includes("RATE_LIMITED") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
       return new Response(
         JSON.stringify({ error: "Gemini API rate limit reached. Please wait a few minutes and try again, or use Normal Review mode." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    if (errorMessage.includes("JSON_PARSE_ERROR")) {
+      return new Response(
+        JSON.stringify({ error: "AI returned an invalid response. Please try again." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Log unknown errors for debugging
+    console.error("[Unhandled Error Type]:", errorMessage);
     
     return new Response(
       JSON.stringify({ error: errorMessage || "Analysis failed. Please try again." }),
