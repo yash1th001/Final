@@ -37,6 +37,24 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+# AI Resume Analysis Models
+class ResumeAnalysisRequest(BaseModel):
+    resumeText: str
+    jobDescription: Optional[str] = None
+    geminiApiKey: Optional[str] = None  # User can provide their own key
+    useEmergentKey: bool = True  # Default to using Emergent LLM key
+
+class ResumeAnalysisResponse(BaseModel):
+    atsScore: int
+    jdMatchScore: Optional[int] = None
+    structureScore: int
+    hasJobDescription: bool
+    candidateContext: Optional[Dict[str, Any]] = None
+    keyFindings: Optional[Dict[str, Any]] = None
+    suggestions: Dict[str, List[str]]
+    structureAnalysis: Dict[str, Any]
+    priorityActions: Optional[List[Dict[str, Any]]] = None
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
