@@ -104,12 +104,12 @@ const AnalyzerSection = () => {
       return;
     }
 
-    // For AI mode, check if we have an API key stored
-    if (analysisMode === "ai" && !hasApiKey) {
-      // Show the API key dialog and set pending analysis flag
-      setShowApiKeyDialog(true);
-      setPendingAnalysis(true);
-      return;
+    // For AI mode, if user doesn't have an API key configured, we'll use Emergent LLM key
+    // So no need to block the user - they can optionally provide their own key
+    if (analysisMode === "ai" && !hasApiKey && pendingAnalysis) {
+      // User clicked analyze but dismissed the API key dialog
+      // Just proceed with Emergent key
+      setPendingAnalysis(false);
     }
 
     setIsAnalyzing(true);
