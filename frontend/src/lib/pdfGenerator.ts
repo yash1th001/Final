@@ -270,12 +270,12 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
     doc.text(`${String(index + 1).padStart(2, '0')}`, margin + 5, yPosition);
     
     doc.setTextColor(...textColor);
-    const lines = doc.splitTextToSize(tip, contentWidth - 20);
-    lines.forEach((line: string) => {
-      doc.text(line, margin + 18, yPosition);
-      yPosition += 5;
+    const textWidth = contentWidth - 18;
+    const lines = doc.splitTextToSize(tip, textWidth);
+    lines.forEach((line: string, lineIndex: number) => {
+      doc.text(line, margin + 18, yPosition + (lineIndex * 5));
     });
-    yPosition += 3;
+    yPosition += (lines.length * 5) + 2;
   });
   
   // Footer on last page
