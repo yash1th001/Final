@@ -4,6 +4,8 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+# Trigger reload for CORS update
+
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -23,6 +25,19 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI()
+
+# Add CORS middleware BEFORE including routes
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+cors_origins = [origin.strip() for origin in cors_origins]  # Remove whitespace from each origin
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -152,10 +167,10 @@ async def analyze_resume(request: ResumeAnalysisRequest):
                 detail="API key access denied. Make sure the Generative Language API is enabled in your Google Cloud Console."
             )
         
-        if "RATE_LIMITED" in error_message or "429" in error_message:
+        if "RATE_LIMITED" in error_message or "429" in error_message or "RESOURCE_EXHAUSTED" in error_message or "Quota exceeded" in error_message:
             raise HTTPException(
                 status_code=429,
-                detail="Gemini API rate limit reached. Please wait a few minutes and try again."
+                detail="Gemini API rate limit reached (Free Tier). Please wait a minute or add your own API Key in the settings."
             )
         
         if "JSON_PARSE_ERROR" in error_message:
@@ -524,14 +539,6 @@ def parse_json_response(content: str) -> Dict[str, Any]:
 
 # Include the router in the main app
 app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Configure logging
 logging.basicConfig(
