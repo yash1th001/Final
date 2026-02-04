@@ -166,12 +166,21 @@ export async function generateAnalysisReport(results: AnalysisResult): Promise<v
       const displayText = toDisplayString(item);
       if (!displayText || displayText.trim() === '') return;
       
-      const lines = doc.splitTextToSize(`${symbol} ${displayText}`, contentWidth - 5);
-      lines.forEach((line: string) => {
-        doc.text(line, margin + 5, yPosition);
+      // Use proper wrapping width - symbol takes ~3 units, give text the rest
+      const textWidth = contentWidth - 10;
+      const lines = doc.splitTextToSize(displayText, textWidth);
+      
+      // Print symbol on first line only
+      doc.setTextColor(...color);
+      doc.text(symbol, margin + 2, yPosition);
+      
+      // Print wrapped text lines
+      doc.setTextColor(...textColor);
+      lines.forEach((line: string, lineIndex: number) => {
+        doc.text(line, margin + 8, yPosition);
         yPosition += 5;
       });
-      yPosition += 3;
+      yPosition += 2;
     });
     
     yPosition += 8;
