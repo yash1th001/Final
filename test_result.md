@@ -127,11 +127,14 @@ frontend:
     file: "/app/frontend/src/components/AnalyzerSection.tsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: true
         agent: "main"
         comment: "Updated frontend to call backend /api/analyze-resume endpoint instead of Supabase edge function. Made API key optional - uses Emergent LLM key by default. Users can optionally provide their own Gemini API key."
+      - working: true
+        agent: "main"
+        comment: "Fixed backend URL configuration for preview environment. Changed from hardcoded localhost to relative URLs so /api/ requests are properly routed through Kubernetes ingress to backend service."
 
 metadata:
   created_by: "main_agent"
