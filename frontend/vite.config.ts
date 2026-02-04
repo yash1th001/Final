@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       clientPort: 443,
     },
+    allowedHosts: [
+      "backend-healer-2.preview.emergentagent.com",
+      "localhost",
+      ".emergentagent.com"
+    ],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
