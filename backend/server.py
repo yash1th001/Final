@@ -14,6 +14,12 @@ from datetime import datetime
 import json
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
+# Configure logging FIRST - before any other code
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -539,13 +545,6 @@ def parse_json_response(content: str) -> Dict[str, Any]:
 
 # Include the router in the main app
 app.include_router(api_router)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
