@@ -145,7 +145,7 @@ const AnalyzerSection = () => {
         });
       } else {
         // AI-powered analysis using Gemini via backend API
-        const backendUrl = import.meta.env.VITE_APP_BACKEND_URL || process.env.VITE_APP_BACKEND_URL;
+        const backendUrl = import.meta.env.VITE_APP_BACKEND_URL || process.env.VITE_APP_BACKEND_URL || '';
         
         const requestBody: any = {
           resumeText: finalResumeText,
